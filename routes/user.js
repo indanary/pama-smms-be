@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const connection = require('../db');
+const { v4: uuidv4 } = require('uuid');
 
 // Get all users
 router.get('/', (req, res) => {
@@ -37,13 +38,15 @@ router.post('/', (req, res) => {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
+  const userId = uuidv4(); 
+
   const query = 'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)';
   connection.query(query, [name, email, password, role], (err, results) => {
     if (err) {
       res.status(500).send(err);
       return;
     }
-    res.status(201).json({ id: results.insertId, message: 'User created successfully' });
+    res.status(201).json({ id: userId, message: 'User created successfully' });
   });
 });
 
