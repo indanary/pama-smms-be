@@ -22,30 +22,6 @@ const generateRefreshToken = (user) => {
 	})
 }
 
-// Register a new user (optional, if you want signup functionality)
-const registerUser = async (req, res) => {
-	const {name, email, password, role} = req.body
-
-	// Hash password
-	const hashedPassword = await bcrypt.hash(password, 10)
-
-	const query =
-		"INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)"
-	connection.query(
-		query,
-		[name, email, hashedPassword, role],
-		(err, results) => {
-			if (err) {
-				return res.status(500).send(err)
-			}
-			res.status(201).json({
-				id: results.insertId,
-				message: "User created successfully",
-			})
-		},
-	)
-}
-
 // Login (Authenticate User)
 const loginUser = async (req, res) => {
 	const {email, password} = req.body
@@ -104,4 +80,4 @@ const logoutUser = (req, res) => {
 	res.status(200).json({message: "Logged out successfully"})
 }
 
-module.exports = {registerUser, loginUser, refreshAccessToken, logoutUser}
+module.exports = {loginUser, refreshAccessToken, logoutUser}
