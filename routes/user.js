@@ -40,8 +40,8 @@ router.post('/', (req, res) => {
 
   const userId = uuidv4(); 
 
-  const query = 'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)';
-  connection.query(query, [name, email, password, role], (err, results) => {
+  const query = 'INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)';
+  connection.query(query, [userId, name, email, password, role], (err, results) => {
     if (err) {
       res.status(500).send(err);
       return;
