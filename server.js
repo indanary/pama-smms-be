@@ -14,7 +14,7 @@ app.use(express.json());
 
 // Use the routes
 app.use('/auth', authRoutes);
-app.use('/users', userRoutes);
+app.use('/users', tokenMiddlewares, userRoutes);
 app.use('/items', tokenMiddlewares, itemRoutes);
 
 app.listen(port, () => {

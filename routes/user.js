@@ -98,17 +98,17 @@ router.post("/", (req, res) => {
 // Update an existing user
 router.put("/:id", (req, res) => {
 	const userId = req.params.id
-	const {name, email, password, role} = req.body
+	const {name, email, role} = req.body
 
-	if (!name || !email || !password || !role) {
+	if (!name || !email || !role) {
 		return res.status(400).json({message: "All fields are required"})
 	}
 
 	const query =
-		"UPDATE users SET name = ?, email = ?, password = ?, role = ? WHERE id = ?"
+		"UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?"
 	connection.query(
 		query,
-		[name, email, password, role, userId],
+		[name, email, role, userId],
 		(err, results) => {
 			if (err) {
 				res.status(500).send(err)
