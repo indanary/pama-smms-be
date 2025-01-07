@@ -27,6 +27,39 @@ router.get("/", (req, res) => {
 	})
 })
 
+// Get user profile
+router.get("/profile", (req, res) => {
+	const userId = req.user.id
+
+	connection.query(
+		"SELECT * FROM users WHERE id = ?",
+		[userId],
+		(err, results) => {
+			if (err) {
+				res.status(500).send(err)
+				return
+			}
+			if (results.length === 0) {
+				res.status(404).json({message: "User not found"})
+				return
+			}
+
+			const resData = {
+				id: results[0].id,
+				name: results[0].name,
+				email: results[0].email,
+				role: results[0].role,
+				created_at: results[0].created_at,
+				created_by: results[0].created_by,
+				last_updated_at: results[0].last_updated_at,
+				last_updated_by: results[0].last_updated_by,
+			}
+
+			res.status(200).json(resData)
+		},
+	)
+})
+
 // Get a single user by ID
 router.get("/:id", (req, res) => {
 	const userId = req.params.id
