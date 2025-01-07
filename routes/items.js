@@ -1,9 +1,10 @@
 const express = require("express")
 const router = express.Router()
 const connection = require("../db")
+const {format} = require("date-fns")
 
 // Create item
-router.post("/items", (req, res) => {
+router.post("/", (req, res) => {
 	const {
 		stock_node,
 		part_no,
@@ -12,12 +13,36 @@ router.post("/items", (req, res) => {
 		item_name,
 		uoi,
 	} = req.body
-	const query =
-		"INSERT INTO items (stock_node, part_no, mnemonic, class, item_name, uoi) VALUES (?, ?, ?, ?, ?, ?)"
 
-	db.execute(
+	if (
+		!stock_node ||
+		!part_no ||
+		!mnemonic ||
+		!item_class ||
+		!item_name ||
+		!uoi
+	) {
+		return res.status(400).json({message: "All fields are required"})
+	}
+
+	const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
+	const createdBy = req.user.email
+
+	const query =
+		"INSERT INTO items (stock_node, part_no, mnemonic, class, item_name, uoi, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+
+	connection.query(
 		query,
-		[stock_node, part_no, mnemonic, item_class, item_name, uoi],
+		[
+			stock_node,
+			part_no,
+			mnemonic,
+			item_class,
+			item_name,
+			uoi,
+			createdAt,
+			createdBy,
+		],
 		(err, result) => {
 			if (err) {
 				return res
@@ -26,17 +51,16 @@ router.post("/items", (req, res) => {
 			}
 			res.status(201).json({
 				message: "Item created successfully",
-				itemId: result.insertId,
 			})
 		},
 	)
 })
 
 // Read all items
-router.get("/items", (req, res) => {
+router.get("/", (req, res) => {
 	const query = "SELECT * FROM items"
 
-	db.execute(query, (err, result) => {
+	connection.query(query, (err, result) => {
 		if (err) {
 			return res
 				.status(500)
@@ -47,11 +71,11 @@ router.get("/items", (req, res) => {
 })
 
 // Read single item
-router.get("/items/:id", (req, res) => {
+router.get("/:id", (req, res) => {
 	const {id} = req.params
 	const query = "SELECT * FROM items WHERE id = ?"
 
-	db.execute(query, [id], (err, result) => {
+	connection.query(query, [id], (err, result) => {
 		if (err) {
 			return res
 				.status(500)
@@ -65,8 +89,8 @@ router.get("/items/:id", (req, res) => {
 })
 
 // Update item
-router.put("/items/:id", (req, res) => {
-	const {id} = req.params
+router.put("/:id", (req, res) => {
+	const itemId = req.params.id
 	const {
 		stock_node,
 		part_no,
@@ -75,12 +99,27 @@ router.put("/items/:id", (req, res) => {
 		item_name,
 		uoi,
 	} = req.body
-	const query =
-		"UPDATE items SET stock_node = ?, part_no = ?, mnemonic = ?, class = ?, item_name = ?, uoi = ? WHERE id = ?"
 
-	db.execute(
+  if (
+		!stock_node ||
+		!part_no ||
+		!mnemonic ||
+		!item_class ||
+		!item_name ||
+		!uoi
+	) {
+		return res.status(400).json({message: "All fields are required"})
+	}
+
+  const lastUpdatedAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
+	const lastUpdatedBy = req.user.email
+
+	const query =
+		"UPDATE items SET stock_node = ?, part_no = ?, mnemonic = ?, class = ?, item_name = ?, uoi = ?, last_updated_at = ?, last_updated_by = ? WHERE id = ?"
+
+	connection.query(
 		query,
-		[stock_node, part_no, mnemonic, item_class, item_name, uoi, id],
+		[stock_node, part_no, mnemonic, item_class, item_name, uoi, lastUpdatedAt, lastUpdatedBy, itemId],
 		(err, result) => {
 			if (err) {
 				return res
@@ -97,10 +136,10 @@ router.put("/items/:id", (req, res) => {
 
 // Delete item
 router.delete("/items/:id", (req, res) => {
-	const {id} = req.params
+	const itemId = req.params.id
 	const query = "DELETE FROM items WHERE id = ?"
 
-	db.execute(query, [id], (err, result) => {
+	connection.query(query, [itemId], (err, result) => {
 		if (err) {
 			return res
 				.status(500)
@@ -113,4 +152,4 @@ router.delete("/items/:id", (req, res) => {
 	})
 })
 
-module.exports = router;
+module.exports = router

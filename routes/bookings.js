@@ -10,7 +10,7 @@ router.get("/", (req, res) => {
 			res.status(500).send(err)
 			return
 		}
-		res.json(results)
+		res.status(200).json(results)
 	})
 })
 
@@ -29,7 +29,7 @@ router.get("/:id", (req, res) => {
 				res.status(404).json({message: "User not found"})
 				return
 			}
-			res.json(results[0])
+			res.status(200).json(results[0])
 		},
 	)
 })
@@ -104,7 +104,7 @@ router.put("/:id", (req, res) => {
 				res.status(404).json({message: "Booking not found"})
 				return
 			}
-			res.json({message: "Booking updated successfully"})
+			res.status(200).json({message: "Booking updated successfully"})
 		},
 	)
 })
@@ -123,7 +123,7 @@ router.delete("/:id", (req, res) => {
 			res.status(404).json({message: "Booking not found"})
 			return
 		}
-		res.json({message: "Booking deleted successfully"})
+		res.status(200).json({message: "Booking deleted successfully"})
 	})
 })
 
