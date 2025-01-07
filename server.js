@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 
 const tokenMiddlewares = require('./middlewares/token');
 
@@ -11,6 +12,9 @@ const port = 3001;
 
 // Middleware to parse JSON
 app.use(express.json());
+
+// todo: add config for cors
+app.use(cors())
 
 // Use the routes
 app.use('/auth', authRoutes);
