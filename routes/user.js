@@ -2,6 +2,7 @@ const express = require("express")
 const router = express.Router()
 const connection = require("../db")
 const {v4: uuidv4} = require("uuid")
+const bcrypt = require("bcryptjs")
 
 // Get all users
 router.get("/", (req, res) => {
@@ -67,18 +68,20 @@ router.post("/", (req, res) => {
 	}
 
 	const checkEmailQuery = "SELECT * FROM users WHERE email = ?"
-	connection.query(checkEmailQuery, [email], (err, results) => {
+	connection.query(checkEmailQuery, [email], async (err, results) => {
 		if (results.length > 0) {
 			return res.status(409).json({message: "User already exists"})
 		}
 
 		const userId = uuidv4()
 
+		const hashPass = await bcrypt.hash(password, 10)
+
 		const query =
 			"INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)"
 		connection.query(
 			query,
-			[userId, name, email, password, role],
+			[userId, name, email, hashPass, role],
 			(err, results) => {
 				if (err) {
 					res.status(500).send(err)
