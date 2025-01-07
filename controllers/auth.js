@@ -1,4 +1,4 @@
-require('dotenv').config();
+require("dotenv").config()
 const jwt = require("jsonwebtoken")
 const bcrypt = require("bcryptjs")
 const connection = require("../db")
@@ -49,7 +49,10 @@ const loginUser = async (req, res) => {
 
 		// Optionally store refresh token in database (recommended for extra security)
 
-		res.status(200).json({accessToken, refreshToken})
+		res.status(200).json({
+			access_token: accessToken,
+			refresh_token: refreshToken,
+		})
 	})
 }
 
