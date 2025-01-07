@@ -49,7 +49,7 @@ const loginUser = async (req, res) => {
 
 		// Optionally store refresh token in database (recommended for extra security)
 
-		res.json({accessToken, refreshToken})
+		res.status(200).json({accessToken, refreshToken})
 	})
 }
 
@@ -70,7 +70,7 @@ const refreshAccessToken = (req, res) => {
 
 		// Generate a new access token
 		const newAccessToken = generateAccessToken(decoded)
-		res.json({accessToken: newAccessToken})
+		res.status(200).json({accessToken: newAccessToken})
 	})
 }
 
