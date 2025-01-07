@@ -42,24 +42,30 @@ router.post("/", (req, res) => {
 		return res.status(400).json({message: "All fields are required"})
 	}
 
-	const userId = uuidv4()
+	const checkEmailQuery = "SELECT * FROM users WHERE email = ?"
+	connection.query(checkEmailQuery, [email], (err, results) => {
+		if (results.length > 0) {
+			return res.status(409).json({message: "User already exists"})
+		}
 
-	const query =
-		"INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)"
-	connection.query(
-		query,
-		[userId, name, email, password, role],
-		(err, results) => {
-			if (err) {
-				res.status(500).send(err)
-				return
-			}
-			res.status(201).json({
-				id: userId,
-				message: "User created successfully",
-			})
-		},
-	)
+		const userId = uuidv4()
+
+		const query =
+			"INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)"
+		connection.query(
+			query,
+			[userId, name, email, password, role],
+			(err, results) => {
+				if (err) {
+					res.status(500).send(err)
+					return
+				}
+				res.status(201).json({
+					message: "User created successfully",
+				})
+			},
+		)
+	})
 })
 
 // Update an existing user
