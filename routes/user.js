@@ -10,7 +10,19 @@ router.get("/", (req, res) => {
 			res.status(500).send(err)
 			return
 		}
-		res.status(200).json(results)
+
+		const resData = results.map((x) => ({
+			id: x.id,
+			name: x.name,
+			email: x.email,
+			role: x.role,
+			created_at: x.created_at,
+			created_by: x.created_by,
+			last_updated_at: x.last_updated_at,
+			last_updated_by: x.last_updated_by,
+		}))
+
+		res.status(200).json(resData)
 	})
 })
 
@@ -29,7 +41,19 @@ router.get("/:id", (req, res) => {
 				res.status(404).json({message: "User not found"})
 				return
 			}
-			res.status(200).json(results[0])
+
+			const resData = {
+				id: results[0].id,
+				name: results[0].name,
+				email: results[0].email,
+				role: results[0].role,
+				created_at: results[0].created_at,
+				created_by: results[0].created_by,
+				last_updated_at: results[0].last_updated_at,
+				last_updated_by: results[0].last_updated_by,
+			}
+
+			res.status(200).json(resData)
 		},
 	)
 })
