@@ -36,28 +36,31 @@ router.get("/:id", (req, res) => {
 
 // Create a new booking
 router.post("/", (req, res) => {
-	const {po_number, due_date} = req.body
+	const {po_number, due_date, description} = req.body
 
-	if (!po_number || !due_date) {
-		return res.status(400).json({message: "All fields are required"})
+	if (!description) {
+		return res.status(400).json({message: "Description are required"})
 	}
 
+	const poNumber = po_number ?? ''
+	const dueDate = due_date ?? ''
 	const approvedStatus = false
 	const bookingStatus = "open"
 	const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
-	const createdBy = req.user.email
+	const createdBy = req.user.id
 
 	const query =
-		"INSERT INTO bookings (approved_status, po_number, due_date, booking_status, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?)"
+		"INSERT INTO bookings (approved_status, po_number, due_date, booking_status, created_at, created_by, description) VALUES (?, ?, ?, ?, ?, ?, ?)"
 	connection.query(
 		query,
 		[
 			approvedStatus,
-			po_number,
-			due_date,
+			poNumber,
+			dueDate,
 			bookingStatus,
 			createdAt,
 			createdBy,
+			description
 		],
 		(err, results) => {
 			if (err) {
