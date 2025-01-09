@@ -36,14 +36,14 @@ router.get("/:id", (req, res) => {
 
 // Create a new booking
 router.post("/", (req, res) => {
-	const {po_number, due_date, description} = req.body
+	const {description, items} = req.body
 
 	if (!description) {
 		return res.status(400).json({message: "Description are required"})
 	}
 
-	const poNumber = po_number ?? ''
-	const dueDate = due_date ?? ''
+	const poNumber = ""
+	const dueDate = ""
 	const approvedStatus = false
 	const bookingStatus = "open"
 	const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
@@ -60,7 +60,7 @@ router.post("/", (req, res) => {
 			bookingStatus,
 			createdAt,
 			createdBy,
-			description
+			description,
 		],
 		(err, results) => {
 			if (err) {
@@ -68,7 +68,33 @@ router.post("/", (req, res) => {
 				return
 			}
 
-			res.status(201).json({message: "Bookings created successfully"})
+			const bookingId = results.insertId
+
+			// Use a counter to track the number of inserts
+			let completedInserts = 0
+
+			items.forEach((item, index) => {
+				const bookingItemQuery =
+					"INSERT INTO booking_items (booking_id, item_id) VALUES (?, ?)"
+				connection.query(
+					bookingItemQuery,
+					[bookingId, item],
+					(error) => {
+						if (error) {
+							return res.status(500).send(error)
+						}
+
+						completedInserts++
+
+						// Send response only after all items have been inserted
+						if (completedInserts === items.length) {
+							res.status(201).json({
+								message: "Bookings created successfully",
+							})
+						}
+					},
+				)
+			})
 		},
 	)
 })
