@@ -6,7 +6,7 @@ const {format} = require("date-fns")
 // Create item
 router.post("/", (req, res) => {
 	const {
-		stock_node,
+		stock_code,
 		part_no,
 		mnemonic,
 		class: item_class,
@@ -15,7 +15,7 @@ router.post("/", (req, res) => {
 	} = req.body
 
 	if (
-		!stock_node ||
+		!stock_code ||
 		!part_no ||
 		!mnemonic ||
 		!item_class ||
@@ -25,35 +25,43 @@ router.post("/", (req, res) => {
 		return res.status(400).json({message: "All fields are required"})
 	}
 
-	const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
-	const createdBy = req.user.email
+	const checkPartNo = "SELECT * FROM items WHERE part_no = ?"
+	connection.query(checkPartNo, [part_no], async (err, results) => {
+		if (results.length > 0) {
+			return res.status(409).json({ message: "Item Part already exists" })
+		}
 
-	const query =
-		"INSERT INTO items (stock_node, part_no, mnemonic, class, item_name, uoi, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-
-	connection.query(
-		query,
-		[
-			stock_node,
-			part_no,
-			mnemonic,
-			item_class,
-			item_name,
-			uoi,
-			createdAt,
-			createdBy,
-		],
-		(err, result) => {
-			if (err) {
-				return res
-					.status(500)
-					.json({message: "Error creating item", error: err})
-			}
-			res.status(201).json({
-				message: "Item created successfully",
-			})
-		},
-	)
+		const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
+		const createdBy = req.user.id
+	
+		const query =
+			"INSERT INTO items (stock_code, part_no, mnemonic, class, item_name, uoi, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+	
+		connection.query(
+			query,
+			[
+				stock_code,
+				part_no,
+				mnemonic,
+				item_class,
+				item_name,
+				uoi,
+				createdAt,
+				createdBy,
+			],
+			(err, result) => {
+				if (err) {
+					console.log(err, 'err')
+					return res
+						.status(500)
+						.json({message: "Error creating item", error: err})
+				}
+				res.status(201).json({
+					message: "Item created successfully",
+				})
+			},
+		)
+	})
 })
 
 // Read all items
@@ -92,7 +100,7 @@ router.get("/:id", (req, res) => {
 router.put("/:id", (req, res) => {
 	const itemId = req.params.id
 	const {
-		stock_node,
+		stock_code,
 		part_no,
 		mnemonic,
 		class: item_class,
@@ -100,8 +108,8 @@ router.put("/:id", (req, res) => {
 		uoi,
 	} = req.body
 
-  if (
-		!stock_node ||
+	if (
+		!stock_code ||
 		!part_no ||
 		!mnemonic ||
 		!item_class ||
@@ -111,15 +119,25 @@ router.put("/:id", (req, res) => {
 		return res.status(400).json({message: "All fields are required"})
 	}
 
-  const lastUpdatedAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
+	const lastUpdatedAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
 	const lastUpdatedBy = req.user.email
 
 	const query =
-		"UPDATE items SET stock_node = ?, part_no = ?, mnemonic = ?, class = ?, item_name = ?, uoi = ?, last_updated_at = ?, last_updated_by = ? WHERE id = ?"
+		"UPDATE items SET stock_code = ?, part_no = ?, mnemonic = ?, class = ?, item_name = ?, uoi = ?, last_updated_at = ?, last_updated_by = ? WHERE id = ?"
 
 	connection.query(
 		query,
-		[stock_node, part_no, mnemonic, item_class, item_name, uoi, lastUpdatedAt, lastUpdatedBy, itemId],
+		[
+			stock_code,
+			part_no,
+			mnemonic,
+			item_class,
+			item_name,
+			uoi,
+			lastUpdatedAt,
+			lastUpdatedBy,
+			itemId,
+		],
 		(err, result) => {
 			if (err) {
 				return res
