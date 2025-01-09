@@ -5,33 +5,62 @@ const {format} = require("date-fns")
 
 // Get all bookings
 router.get("/", (req, res) => {
-	connection.query("SELECT * FROM bookings", (err, results) => {
+	const query = `
+		SELECT b.*, 
+			   u1.email AS created_by_email, 
+			   u2.email AS last_updated_by_email 
+		FROM bookings b
+		LEFT JOIN users u1 ON b.created_by = u1.id
+		LEFT JOIN users u2 ON b.last_updated_by = u2.id
+	`
+
+	connection.query(query, (err, results) => {
 		if (err) {
 			res.status(500).send(err)
 			return
 		}
-		res.status(200).json(results)
+
+		const formattedResults = results.map((booking) => ({
+			...booking,
+			created_by: booking.created_by_email,
+			last_updated_by: booking.last_updated_by_email,
+		}))
+
+		res.status(200).json(formattedResults)
 	})
 })
 
 // Get a single booking by ID
 router.get("/:id", (req, res) => {
 	const bookingId = req.params.id
-	connection.query(
-		"SELECT * FROM bookings WHERE id = ?",
-		[bookingId],
-		(err, results) => {
-			if (err) {
-				res.status(500).send(err)
-				return
-			}
-			if (results.length === 0) {
-				res.status(404).json({message: "User not found"})
-				return
-			}
-			res.status(200).json(results[0])
-		},
-	)
+
+	const query = `
+		SELECT b.*, 
+			   u1.email AS created_by_email, 
+			   u2.email AS last_updated_by_email 
+		FROM bookings b
+		LEFT JOIN users u1 ON b.created_by = u1.id
+		LEFT JOIN users u2 ON b.last_updated_by = u2.id
+		WHERE b.id = ?
+	`
+
+	connection.query(query, [bookingId], (err, results) => {
+		if (err) {
+			return res.status(500).send(err)
+		}
+		if (results.length === 0) {
+			return res.status(404).json({message: "Booking not found"})
+		}
+
+		const booking = results[0]
+		const formattedBooking = {
+			...booking,
+			created_by: booking.created_by_email,
+			last_updated_by: booking.last_updated_by_email,
+		}
+
+		res.status(200).json(formattedBooking)
+	})
 })
 
 // Create a new booking
@@ -141,18 +170,28 @@ router.put("/:id", (req, res) => {
 // Delete booking
 router.delete("/:id", (req, res) => {
 	const bookingId = req.params.id
-	const query = "DELETE FROM bookings WHERE id = ?"
 
-	connection.query(query, [bookingId], (err, results) => {
+	// Delete related booking items first
+	const deleteBookingItemsQuery =
+		"DELETE FROM booking_items WHERE booking_id = ?"
+	connection.query(deleteBookingItemsQuery, [bookingId], (err, results) => {
 		if (err) {
-			res.status(500).send(err)
-			return
+			return res.status(500).send(err)
 		}
-		if (results.affectedRows === 0) {
-			res.status(404).json({message: "Booking not found"})
-			return
-		}
-		res.status(200).json({message: "Booking deleted successfully"})
+
+		// Proceed to delete the booking after booking items are deleted
+		const deleteBookingQuery = "DELETE FROM bookings WHERE id = ?"
+		connection.query(deleteBookingQuery, [bookingId], (err, results) => {
+			if (err) {
+				return res.status(500).send(err)
+			}
+			if (results.affectedRows === 0) {
+				return res.status(404).json({message: "Booking not found"})
+			}
+			res.status(200).json({
+				message: "Booking deleted successfully",
+			})
+		})
 	})
 })
 
