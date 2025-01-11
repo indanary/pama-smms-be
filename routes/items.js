@@ -25,10 +25,10 @@ router.post("/", (req, res) => {
 		return res.status(400).json({message: "All fields are required"})
 	}
 
-	const checkPartNo = "SELECT * FROM items WHERE part_no = ?"
-	connection.query(checkPartNo, [part_no], async (err, results) => {
+	const checkStockCode = "SELECT * FROM items WHERE stock_code = ?"
+	connection.query(checkStockCode, [stock_code], async (err, results) => {
 		if (results.length > 0) {
-			return res.status(409).json({ message: "Item Part already exists" })
+			return res.status(409).json({ message: "Item Part with the same stock code already exists" })
 		}
 
 		const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
@@ -66,7 +66,14 @@ router.post("/", (req, res) => {
 
 // Read all items
 router.get("/", (req, res) => {
-	const query = "SELECT * FROM items"
+	const query = `
+		SELECT i.*, 
+			   u1.email AS created_by_email, 
+			   u2.email AS last_updated_by_email 
+		FROM items i
+		LEFT JOIN users u1 ON i.created_by = u1.id
+		LEFT JOIN users u2 ON i.last_updated_by = u2.id
+	`
 
 	connection.query(query, (err, result) => {
 		if (err) {
@@ -74,7 +81,14 @@ router.get("/", (req, res) => {
 				.status(500)
 				.json({message: "Error fetching items", error: err})
 		}
-		res.status(200).json(result)
+
+		const formattedResults = result.map((item) => ({
+			...item,
+			created_by: item.created_by_email,
+			last_updated_by: item.last_updated_by_email,
+		}))
+
+		res.status(200).json(formattedResults)
 	})
 })
 
