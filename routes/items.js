@@ -28,15 +28,20 @@ router.post("/", (req, res) => {
 	const checkStockCode = "SELECT * FROM items WHERE stock_code = ?"
 	connection.query(checkStockCode, [stock_code], async (err, results) => {
 		if (results.length > 0) {
-			return res.status(409).json({ message: "Item Part with the same stock code already exists" })
+			return res
+				.status(409)
+				.json({
+					message:
+						"Item Part with the same stock code already exists",
+				})
 		}
 
 		const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
 		const createdBy = req.user.id
-	
+
 		const query =
 			"INSERT INTO items (stock_code, part_no, mnemonic, class, item_name, uoi, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-	
+
 		connection.query(
 			query,
 			[
@@ -51,7 +56,7 @@ router.post("/", (req, res) => {
 			],
 			(err, result) => {
 				if (err) {
-					console.log(err, 'err')
+					console.log(err, "err")
 					return res
 						.status(500)
 						.json({message: "Error creating item", error: err})
@@ -66,7 +71,9 @@ router.post("/", (req, res) => {
 
 // Read all items
 router.get("/", (req, res) => {
-	const query = `
+	const {stock_code} = req.query
+
+	let query = `
 		SELECT i.*, 
 			   u1.email AS created_by_email, 
 			   u2.email AS last_updated_by_email 
@@ -75,21 +82,30 @@ router.get("/", (req, res) => {
 		LEFT JOIN users u2 ON i.last_updated_by = u2.id
 	`
 
-	connection.query(query, (err, result) => {
-		if (err) {
-			return res
-				.status(500)
-				.json({message: "Error fetching items", error: err})
-		}
+	// Add search condition if stock_code is provided
+	if (stock_code) {
+		query += " WHERE i.stock_code LIKE ?"
+	}
 
-		const formattedResults = result.map((item) => ({
-			...item,
-			created_by: item.created_by_email,
-			last_updated_by: item.last_updated_by_email,
-		}))
+	connection.query(
+		query,
+		[stock_code ? `%${stock_code}%` : null],
+		(err, result) => {
+			if (err) {
+				return res
+					.status(500)
+					.json({message: "Error fetching items", error: err})
+			}
 
-		res.status(200).json(formattedResults)
-	})
+			const formattedResults = result.map((item) => ({
+				...item,
+				created_by: item.created_by_email,
+				last_updated_by: item.last_updated_by_email,
+			}))
+
+			res.status(200).json(formattedResults)
+		},
+	)
 })
 
 // Read single item
