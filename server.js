@@ -7,6 +7,7 @@ const userRoutes = require('./routes/user');
 const authRoutes = require('./routes/auth');
 const itemRoutes = require('./routes/items');
 const bookingRoutes = require('./routes/bookings');
+const poRoutes = require('./routes/po');
 
 const app = express();
 const port = 3001;
@@ -22,6 +23,7 @@ app.use('/auth', authRoutes);
 app.use('/users', tokenMiddlewares, userRoutes);
 app.use('/items', tokenMiddlewares, itemRoutes);
 app.use('/bookings', tokenMiddlewares, bookingRoutes);
+app.use('/booking_po', tokenMiddlewares, poRoutes);
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
