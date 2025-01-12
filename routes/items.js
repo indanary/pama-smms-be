@@ -180,7 +180,7 @@ router.get("/booking", (req, res) => {
 		JOIN items i ON bi.item_id = i.id
 		LEFT JOIN users u1 ON i.created_by = u1.id
 		LEFT JOIN users u2 ON i.last_updated_by = u2.id
-		WHERE bi.booking_id = ? AND bi.po_id IS NULL
+		WHERE bi.booking_id = ? AND bi.po_number IS NULL
 	`
 
 	connection.query(query, [booking_id], (err, result) => {

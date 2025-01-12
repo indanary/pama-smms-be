@@ -101,17 +101,17 @@ router.post("/", (req, res) => {
 })
 
 router.put("/po_items", (req, res) => {
-	const {booking_id, item_ids, po_id} = req.body
+	const {booking_id, item_ids, po_number} = req.body
 
 	if (
 		!booking_id ||
 		!Array.isArray(item_ids) ||
 		item_ids.length === 0 ||
-		po_id === undefined
+		po_number === undefined
 	) {
 		return res
 			.status(400)
-			.json({message: "Booking ID, Item ID, and PO ID are required"})
+			.json({message: "Booking ID, Item IDs, and PO Number are required"})
 	}
 
 	// Query to get the total qty from all items that match the item_ids
@@ -139,10 +139,10 @@ router.put("/po_items", (req, res) => {
 
 		const totalQty = results[0].total_qty
 
-		// Query to update PO ID for each item
+		// Query to update PO Number for each item
 		const updatePoQuery = `
 			UPDATE booking_items
-			SET po_id = ?
+			SET po_number = ?
 			WHERE booking_id = ? AND item_id = ?
 		`
 
@@ -152,12 +152,15 @@ router.put("/po_items", (req, res) => {
 		item_ids.forEach((item_id) => {
 			connection.query(
 				updatePoQuery,
-				[po_id, booking_id, item_id],
+				[po_number, booking_id, item_id],
 				(err) => {
 					if (err) {
 						return res
 							.status(500)
-							.json({message: "Error updating PO ID", error: err})
+							.json({
+								message: "Error updating PO Number",
+								error: err,
+							})
 					}
 
 					completedUpdates++
@@ -167,13 +170,13 @@ router.put("/po_items", (req, res) => {
 						const updateBookingPoQuery = `
 							UPDATE booking_po
 							SET total_qty_items = ?
-							WHERE booking_id = ?
+							WHERE po_number = ?
 						`
 
-						// Update the total_qty_items for the booking_id
+						// Update the total_qty_items for the given po_number
 						connection.query(
 							updateBookingPoQuery,
-							[totalQty, booking_id], // Update total_qty_items for the given booking_id
+							[totalQty, po_number], // Update total_qty_items for the given po_number
 							(err) => {
 								if (err) {
 									return res.status(500).json({
@@ -184,7 +187,7 @@ router.put("/po_items", (req, res) => {
 
 								res.status(200).json({
 									message:
-										"PO ID updated successfully for all items and total_qty_items updated in booking_po",
+										"PO Number updated successfully for all items and total_qty_items updated in booking_po",
 								})
 							},
 						)
