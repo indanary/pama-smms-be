@@ -5,46 +5,48 @@ const {format} = require("date-fns")
 
 // Get all bookings
 router.get("/", (req, res) => {
-	const {id} = req.query
+	const { id } = req.query;
 
 	let query = `
 		SELECT b.*, 
 			   u1.email AS created_by_email, 
 			   u2.email AS last_updated_by_email, 
-			   GROUP_CONCAT(bi.item_id) AS item_ids
+			   GROUP_CONCAT(DISTINCT bp.po_number) AS po_numbers, 
+			   GROUP_CONCAT(DISTINCT bi.item_id) AS item_ids
 		FROM bookings b
 		LEFT JOIN users u1 ON b.created_by = u1.id
 		LEFT JOIN users u2 ON b.last_updated_by = u2.id
+		LEFT JOIN booking_po bp ON b.id = bp.booking_id
 		LEFT JOIN booking_items bi ON b.id = bi.booking_id
-	`
+	`;
 
 	if (id) {
-		query += " WHERE b.id LIKE ?"
+		query += " WHERE b.id LIKE ?";
 	}
 
-	query += " GROUP BY b.id"
+	query += " GROUP BY b.id";
 
 	connection.query(query, [id ? `%${id}%` : null], (err, results) => {
 		if (err) {
-			res.status(500).send(err)
-			return
+			res.status(500).send(err);
+			return;
 		}
 
 		const formattedResults = results.map((booking) => ({
 			...booking,
 			created_by: booking.created_by_email, // Replace created_by with created_by_email
+			last_updated_by: booking.last_updated_by_email || null,
+			po_numbers: booking.po_numbers ? booking.po_numbers.split(",") : [],
 			item_ids: booking.item_ids ? booking.item_ids.split(",") : [],
-			// Remove created_by_email and last_updated_by_email
-			last_updated_by: booking.last_updated_by_email
-				? booking.last_updated_by_email
-				: null,
-			created_by_email: undefined, // Remove created_by_email
-			last_updated_by_email: undefined, // Remove last_updated_by_email
-		}))
+			// Remove created_by_email and last_updated_by_email from the response
+			created_by_email: undefined,
+			last_updated_by_email: undefined,
+		}));
 
-		res.status(200).json(formattedResults)
-	})
-})
+		res.status(200).json(formattedResults);
+	});
+});
+
 
 // Get a single booking by ID
 router.get("/:id", (req, res) => {
