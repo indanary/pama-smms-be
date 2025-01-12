@@ -84,9 +84,12 @@ router.post("/", (req, res) => {
 	const bookingStatus = "open"
 	const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
 	const createdBy = req.user.id
+	const received = 0
+	const receivedDate = ""
+	const wrNo = ""
 
 	const query =
-		"INSERT INTO bookings (approved_status, po_number, due_date, booking_status, created_at, created_by, description) VALUES (?, ?, ?, ?, ?, ?, ?)"
+		"INSERT INTO bookings (approved_status, po_number, due_date, booking_status, created_at, created_by, description, received, received_date, wr_no) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 	connection.query(
 		query,
 		[
@@ -97,6 +100,9 @@ router.post("/", (req, res) => {
 			createdAt,
 			createdBy,
 			description,
+			received,
+			receivedDate,
+			wrNo,
 		],
 		(err, results) => {
 			if (err) {
