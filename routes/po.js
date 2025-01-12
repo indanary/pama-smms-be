@@ -10,6 +10,12 @@ router.get("/", (req, res) => {
 	let query = `
     SELECT bp.po_number, 
            bp.booking_id,
+					 MAX(bp.id) AS id,  -- Get the max id for each po_number
+           MAX(bp.total_qty_items) AS total_qty_items,  -- Get the total_qty_items
+           MAX(bp.total_received_items) AS total_received_items,  -- Get the total_received_items
+           MAX(bp.notes) AS notes,  -- Get the notes
+           MAX(bp.status) AS status,  -- Get the status
+           MAX(bp.due_date) AS due_date,  -- Get the due_date
            u1.email AS created_by_email,
            JSON_ARRAYAGG(
                JSON_OBJECT(
@@ -215,33 +221,50 @@ router.put("/po_items", (req, res) => {
 // Update API for booking_po
 router.put("/:id", (req, res) => {
 	const {id} = req.params
-	const {status, notes} = req.body
+	const {status, notes, total_received_items, due_date} = req.body
 
 	// Ensure at least one field is provided for update
-	if (!status) {
-		return res
-			.status(400)
-			.json({message: "Status or notes must be provided for update"})
-	}
+	// if (!status && !notes && !total_received_items && !due_date) {
+	// 	return res
+	// 		.status(400)
+	// 		.json({message: "Data must be provided for update"})
+	// }
 
 	// Build the query dynamically based on provided fields
 	let query = "UPDATE booking_po SET"
 	let queryParams = []
 
+	let fieldsToUpdate = []
+
+	if (total_received_items) {
+		fieldsToUpdate.push("total_received_items = ?")
+		queryParams.push(total_received_items)
+	}
+
 	if (status) {
-		query += " status = ?"
+		fieldsToUpdate.push("status = ?")
 		queryParams.push(status)
 	}
 
+	if (due_date) {
+		fieldsToUpdate.push("due_date = ?")
+		queryParams.push(due_date)
+	}
+
 	if (notes) {
-		if (queryParams.length > 0) {
-			query += ","
-		}
-		query += " notes = ?"
+		fieldsToUpdate.push("notes = ?")
 		queryParams.push(notes)
 	}
 
-	query += " WHERE id = ?"
+	// If no fields to update, return an error
+	if (fieldsToUpdate.length === 0) {
+		return res
+			.status(400)
+			.json({message: "Data must be provided for update"})
+	}
+
+	// Join the fields to update with commas
+	query += " " + fieldsToUpdate.join(", ") + " WHERE id = ?"
 	queryParams.push(id)
 
 	connection.query(query, queryParams, (err, result) => {
@@ -250,10 +273,10 @@ router.put("/:id", (req, res) => {
 		}
 
 		if (result.affectedRows === 0) {
-			return res.status(404).json({message: "PO Number not found"})
+			return res.status(404).json({message: "Booking PO not found"})
 		}
 
-		res.status(200).json({message: "PO Number updated successfully"})
+		res.status(200).json({message: "Booking PO updated successfully"})
 	})
 })
 
