@@ -8,16 +8,29 @@ router.get("/", (req, res) => {
 	const {booking_id} = req.query
 
 	let query = `
-    SELECT i.*, 
-           u1.email AS created_by_email
-    FROM booking_po i
-    LEFT JOIN users u1 ON i.created_by = u1.id
+    SELECT bp.po_number, 
+           bp.booking_id,
+           u1.email AS created_by_email,
+           JSON_ARRAYAGG(
+               JSON_OBJECT(
+                   'id', it.id,
+                   'stock_code', it.stock_code,
+                   'item_name', it.item_name,
+									 'qty', it.qty
+               )
+           ) AS items
+    FROM booking_po bp
+    LEFT JOIN users u1 ON bp.created_by = u1.id
+    LEFT JOIN booking_items bi ON bp.po_number = bi.po_number
+    LEFT JOIN items it ON bi.item_id = it.id
   `
 
 	// Add condition if booking_id is provided
 	if (booking_id) {
-		query += " WHERE i.booking_id LIKE ?"
+		query += " WHERE bp.booking_id LIKE ?"
 	}
+
+	query += " GROUP BY bp.po_number, bp.booking_id, u1.email"
 
 	connection.query(
 		query,
@@ -33,7 +46,10 @@ router.get("/", (req, res) => {
 			const formattedResults = results.map((item) => ({
 				...item,
 				created_by: item.created_by_email,
+				items: item.items, // No need to parse JSON
 			}))
+
+			console.log(formattedResults, "formatted")
 
 			res.status(200).json(formattedResults)
 		},
@@ -155,12 +171,10 @@ router.put("/po_items", (req, res) => {
 				[po_number, booking_id, item_id],
 				(err) => {
 					if (err) {
-						return res
-							.status(500)
-							.json({
-								message: "Error updating PO Number",
-								error: err,
-							})
+						return res.status(500).json({
+							message: "Error updating PO Number",
+							error: err,
+						})
 					}
 
 					completedUpdates++
