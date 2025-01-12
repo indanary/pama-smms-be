@@ -77,8 +77,7 @@ router.post("/", (req, res) => {
 	if (!description) {
 		return res.status(400).json({message: "Description are required"})
 	}
-
-	const poNumber = ""
+	
 	const dueDate = ""
 	const approvedStatus = false
 	const bookingStatus = "open"
@@ -89,12 +88,11 @@ router.post("/", (req, res) => {
 	const wrNo = ""
 
 	const query =
-		"INSERT INTO bookings (approved_status, po_number, due_date, booking_status, created_at, created_by, description, received, received_date, wr_no) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		"INSERT INTO bookings (approved_status, due_date, booking_status, created_at, created_by, description, received, received_date, wr_no) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
 	connection.query(
 		query,
 		[
 			approvedStatus,
-			poNumber,
 			dueDate,
 			bookingStatus,
 			createdAt,
@@ -144,40 +142,65 @@ router.post("/", (req, res) => {
 // Update bookings
 router.put("/:id", (req, res) => {
 	const bookingId = req.params.id
-	const {approved_status, po_number, due_date, booking_status} = req.body
+	const {approved_status, due_date, received_date, wr_no} =
+		req.body
 
-	if (!approved_status || !po_number || !due_date || !booking_status) {
-		return res.status(400).json({message: "All fields are required"})
+	if (!bookingId) {
+		return res.status(400).json({message: "Booking ID is required"})
 	}
 
-	const lastUpdatedAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
-	const lastUpdatedBy = req.user.email
+	// Initialize arrays for dynamic query construction
+	const fieldsToUpdate = []
+	const values = []
 
-	const query =
-		"UPDATE bookings SET approved_status = ?, po_number = ?, due_date = ?, booking_status = ?, last_updated_at = ?, last_updated_by = ? WHERE id = ?"
-	connection.query(
-		query,
-		[
-			approved_status,
-			po_number,
-			due_date,
-			booking_status,
-			lastUpdatedAt,
-			lastUpdatedBy,
-			bookingId,
-		],
-		(err, results) => {
-			if (err) {
-				res.status(500).send(err)
-				return
-			}
-			if (results.affectedRows === 0) {
-				res.status(404).json({message: "Booking not found"})
-				return
-			}
-			res.status(200).json({message: "Booking updated successfully"})
-		},
-	)
+	// Add fields dynamically based on provided data
+	if (approved_status !== undefined) {
+		fieldsToUpdate.push("approved_status = ?")
+		values.push(approved_status)
+	}
+
+	if (due_date !== undefined) {
+		fieldsToUpdate.push("due_date = ?")
+		values.push(due_date)
+	}
+
+	if (received_date !== undefined) {
+		fieldsToUpdate.push("received_date = ?")
+		fieldsToUpdate.push("received = ?")
+		fieldsToUpdate.push("booking_status = ?")
+		values.push(received_date, 1, "close")
+	}
+
+	if (wr_no !== undefined) {
+		fieldsToUpdate.push("wr_no = ?")
+		values.push(wr_no)
+	}
+
+	// Add the last updated fields
+	const lastUpdatedAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
+	const lastUpdatedBy = req.user.id
+	fieldsToUpdate.push("last_updated_at = ?")
+	fieldsToUpdate.push("last_updated_by = ?")
+	values.push(lastUpdatedAt, lastUpdatedBy)
+
+	// Complete the query with the booking ID
+	const query = `UPDATE bookings SET ${fieldsToUpdate.join(
+		", ",
+	)} WHERE id = ?`
+
+	values.push(bookingId)
+
+	connection.query(query, values, (err, results) => {
+		if (err) {
+			res.status(500).send(err)
+			return
+		}
+		if (results.affectedRows === 0) {
+			res.status(404).json({message: "Booking not found"})
+			return
+		}
+		res.status(200).json({message: "Booking updated successfully"})
+	})
 })
 
 // Delete booking
