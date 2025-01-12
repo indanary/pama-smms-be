@@ -87,7 +87,6 @@ router.post("/", (req, res) => {
 		return res.status(400).json({message: "Description are required"})
 	}
 
-	const dueDate = ""
 	const approvedStatus = false
 	const bookingStatus = "open"
 	const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
@@ -97,12 +96,11 @@ router.post("/", (req, res) => {
 	const wrNo = ""
 
 	const query =
-		"INSERT INTO bookings (approved_status, due_date, booking_status, created_at, created_by, description, received, received_date, wr_no) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		"INSERT INTO bookings (approved_status, booking_status, created_at, created_by, description, received, received_date, wr_no) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
 	connection.query(
 		query,
 		[
 			approvedStatus,
-			dueDate,
 			bookingStatus,
 			createdAt,
 			createdBy,
@@ -151,7 +149,7 @@ router.post("/", (req, res) => {
 // Update bookings
 router.put("/:id", (req, res) => {
 	const bookingId = req.params.id
-	const {approved_status, due_date, received_date, wr_no} = req.body
+	const {approved_status, received_date, wr_no} = req.body
 
 	if (!bookingId) {
 		return res.status(400).json({message: "Booking ID is required"})
@@ -165,11 +163,6 @@ router.put("/:id", (req, res) => {
 	if (approved_status !== undefined) {
 		fieldsToUpdate.push("approved_status = ?")
 		values.push(approved_status)
-	}
-
-	if (due_date !== undefined) {
-		fieldsToUpdate.push("due_date = ?")
-		values.push(due_date)
 	}
 
 	if (received_date !== undefined) {
