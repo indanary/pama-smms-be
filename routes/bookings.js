@@ -11,11 +11,11 @@ router.get("/", (req, res) => {
 		SELECT b.*, 
 			   u1.email AS created_by_email, 
 			   u2.email AS last_updated_by_email, 
-			   GROUP_CONCAT(bp.po_number) AS po_numbers
+			   GROUP_CONCAT(bi.item_id) AS item_ids
 		FROM bookings b
 		LEFT JOIN users u1 ON b.created_by = u1.id
 		LEFT JOIN users u2 ON b.last_updated_by = u2.id
-		LEFT JOIN booking_po bp ON b.id = bp.booking_id
+		LEFT JOIN booking_items bi ON b.id = bi.booking_id
 	`
 
 	if (id) {
@@ -32,9 +32,14 @@ router.get("/", (req, res) => {
 
 		const formattedResults = results.map((booking) => ({
 			...booking,
-			created_by: booking.created_by_email,
-			last_updated_by: booking.last_updated_by_email,
-			po_numbers: booking.po_numbers ? booking.po_numbers.split(",") : [],
+			created_by: booking.created_by_email, // Replace created_by with created_by_email
+			item_ids: booking.item_ids ? booking.item_ids.split(",") : [],
+			// Remove created_by_email and last_updated_by_email
+			last_updated_by: booking.last_updated_by_email
+				? booking.last_updated_by_email
+				: null,
+			created_by_email: undefined, // Remove created_by_email
+			last_updated_by_email: undefined, // Remove last_updated_by_email
 		}))
 
 		res.status(200).json(formattedResults)
@@ -67,14 +72,30 @@ router.get("/:id", (req, res) => {
 		}
 
 		const booking = results[0]
-		const formattedBooking = {
-			...booking,
-			created_by: booking.created_by_email,
-			last_updated_by: booking.last_updated_by_email,
-			po_numbers: booking.po_numbers ? booking.po_numbers.split(",") : [],
-		}
 
-		res.status(200).json(formattedBooking)
+		// Additional query to get item_ids
+		const itemQuery = `SELECT item_id FROM booking_items WHERE booking_id = ?`
+		connection.query(itemQuery, [bookingId], (itemErr, itemResults) => {
+			if (itemErr) {
+				return res.status(500).send(itemErr)
+			}
+
+			const itemIds = itemResults.map((item) => item.item_id)
+
+			const formattedBooking = {
+				...booking,
+				created_by: booking.created_by_email, // Replace created_by with created_by_email
+				last_updated_by: booking.last_updated_by_email, // Replace last_updated_by with last_updated_by_email
+				po_numbers: booking.po_numbers
+					? booking.po_numbers.split(",")
+					: [],
+				item_ids: itemIds, // Include item_ids
+				created_by_email: undefined, // Remove created_by_email
+				last_updated_by_email: undefined, // Remove last_updated_by_email
+			}
+
+			res.status(200).json(formattedBooking)
+		})
 	})
 })
 
