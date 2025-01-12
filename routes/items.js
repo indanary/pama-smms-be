@@ -91,7 +91,7 @@ router.post("/upload", (req, res) => {
 		item.uoi,
 		createdAt,
 		createdBy,
-		item.qty
+		item.qty,
 	])
 
 	const checkStockCode = "SELECT stock_code FROM items WHERE stock_code = ?"
@@ -163,6 +163,40 @@ router.get("/", (req, res) => {
 			res.status(200).json(formattedResults)
 		},
 	)
+})
+
+router.get("/booking", (req, res) => {
+	const {booking_id} = req.query
+
+	if (!booking_id) {
+		return res.status(400).json({message: "Booking ID is required"})
+	}
+
+	const query = `
+		SELECT i.*, 
+			   u1.email AS created_by_email, 
+			   u2.email AS last_updated_by_email 
+		FROM booking_items bi
+		JOIN items i ON bi.item_id = i.id
+		LEFT JOIN users u1 ON i.created_by = u1.id
+		LEFT JOIN users u2 ON i.last_updated_by = u2.id
+		WHERE bi.booking_id = ? AND bi.po_id IS NULL
+	`
+
+	connection.query(query, [booking_id], (err, result) => {
+		if (err) {
+			return res
+				.status(500)
+				.json({message: "Error fetching items", error: err})
+		}
+
+		const formattedResults = result.map((item) => ({
+			...item,
+			created_by: item.created_by_email,
+		}))
+
+		res.status(200).json(formattedResults)
+	})
 })
 
 // Read single item

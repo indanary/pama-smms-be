@@ -43,7 +43,7 @@ router.get("/", (req, res) => {
 
 // Get a single booking by ID
 router.get("/:id", (req, res) => {
-	const bookingId = req.params.id;
+	const bookingId = req.params.id
 
 	const query = `
 		SELECT b.*, 
@@ -56,28 +56,27 @@ router.get("/:id", (req, res) => {
 		LEFT JOIN booking_po bp ON b.id = bp.booking_id
 		WHERE b.id = ?
 		GROUP BY b.id
-	`;
+	`
 
 	connection.query(query, [bookingId], (err, results) => {
 		if (err) {
-			return res.status(500).send(err);
+			return res.status(500).send(err)
 		}
 		if (results.length === 0) {
-			return res.status(404).json({ message: "Booking not found" });
+			return res.status(404).json({message: "Booking not found"})
 		}
 
-		const booking = results[0];
+		const booking = results[0]
 		const formattedBooking = {
 			...booking,
 			created_by: booking.created_by_email,
 			last_updated_by: booking.last_updated_by_email,
 			po_numbers: booking.po_numbers ? booking.po_numbers.split(",") : [],
-		};
+		}
 
-		res.status(200).json(formattedBooking);
-	});
-});
-
+		res.status(200).json(formattedBooking)
+	})
+})
 
 // Create a new booking
 router.post("/", (req, res) => {

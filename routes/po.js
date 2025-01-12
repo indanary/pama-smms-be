@@ -5,27 +5,39 @@ const {format} = require("date-fns")
 
 // Get List API for booking_po
 router.get("/", (req, res) => {
-	const query = `
+	const {booking_id} = req.query
+
+	let query = `
     SELECT i.*, 
-			   u1.email AS created_by_email, 
-		FROM booking_po i
-		LEFT JOIN users u1 ON i.created_by = u1.id
+           u1.email AS created_by_email
+    FROM booking_po i
+    LEFT JOIN users u1 ON i.created_by = u1.id
   `
 
-	connection.query(query, (err, results) => {
-		if (err) {
-			return res
-				.status(500)
-				.json({message: "Error fetching booking PO list", error: err})
-		}
+	// Add condition if booking_id is provided
+	if (booking_id) {
+		query += " WHERE i.booking_id LIKE ?"
+	}
 
-		const formattedResults = results.map((item) => ({
-			...item,
-			created_by: item.created_by_email,
-		}))
+	connection.query(
+		query,
+		[booking_id ? `%${booking_id}%` : null],
+		(err, results) => {
+			if (err) {
+				return res.status(500).json({
+					message: "Error fetching booking PO list",
+					error: err,
+				})
+			}
 
-		res.status(200).json(formattedResults)
-	})
+			const formattedResults = results.map((item) => ({
+				...item,
+				created_by: item.created_by_email,
+			}))
+
+			res.status(200).json(formattedResults)
+		},
+	)
 })
 
 // Get Detail API for booking_po
@@ -84,6 +96,101 @@ router.post("/", (req, res) => {
 		res.status(201).json({
 			message: "PO Numbers inserted successfully",
 			insertedCount: result.affectedRows,
+		})
+	})
+})
+
+router.put("/po_items", (req, res) => {
+	const {booking_id, item_ids, po_id} = req.body
+
+	if (
+		!booking_id ||
+		!Array.isArray(item_ids) ||
+		item_ids.length === 0 ||
+		po_id === undefined
+	) {
+		return res
+			.status(400)
+			.json({message: "Booking ID, Item ID, and PO ID are required"})
+	}
+
+	// Query to get the total qty from all items that match the item_ids
+	const getQtyQuery = `
+		SELECT SUM(i.qty) AS total_qty
+		FROM booking_items bi
+		JOIN items i ON bi.item_id = i.id
+		WHERE bi.booking_id = ? AND bi.item_id IN (?)
+	`
+
+	// Use an array for the IN clause
+	connection.query(getQtyQuery, [booking_id, item_ids], (err, results) => {
+		if (err) {
+			return res
+				.status(500)
+				.json({message: "Error fetching item quantities", error: err})
+		}
+
+		// Ensure total_qty exists and is greater than 0
+		if (!results[0].total_qty) {
+			return res
+				.status(404)
+				.json({message: "No items found for the given item IDs"})
+		}
+
+		const totalQty = results[0].total_qty
+
+		// Query to update PO ID for each item
+		const updatePoQuery = `
+			UPDATE booking_items
+			SET po_id = ?
+			WHERE booking_id = ? AND item_id = ?
+		`
+
+		let completedUpdates = 0
+
+		// Update each item
+		item_ids.forEach((item_id) => {
+			connection.query(
+				updatePoQuery,
+				[po_id, booking_id, item_id],
+				(err) => {
+					if (err) {
+						return res
+							.status(500)
+							.json({message: "Error updating PO ID", error: err})
+					}
+
+					completedUpdates++
+
+					// After all updates, update the existing data in booking_po table
+					if (completedUpdates === item_ids.length) {
+						const updateBookingPoQuery = `
+							UPDATE booking_po
+							SET total_qty_items = ?
+							WHERE booking_id = ?
+						`
+
+						// Update the total_qty_items for the booking_id
+						connection.query(
+							updateBookingPoQuery,
+							[totalQty, booking_id], // Update total_qty_items for the given booking_id
+							(err) => {
+								if (err) {
+									return res.status(500).json({
+										message: "Error updating booking_po",
+										error: err,
+									})
+								}
+
+								res.status(200).json({
+									message:
+										"PO ID updated successfully for all items and total_qty_items updated in booking_po",
+								})
+							},
+						)
+					}
+				},
+			)
 		})
 	})
 })
