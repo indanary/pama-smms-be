@@ -28,12 +28,9 @@ router.post("/", (req, res) => {
 	const checkStockCode = "SELECT * FROM items WHERE stock_code = ?"
 	connection.query(checkStockCode, [stock_code], async (err, results) => {
 		if (results.length > 0) {
-			return res
-				.status(409)
-				.json({
-					message:
-						"Item Part with the same stock code already exists",
-				})
+			return res.status(409).json({
+				message: "Item Part with the same stock code already exists",
+			})
 		}
 
 		const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
@@ -66,6 +63,62 @@ router.post("/", (req, res) => {
 				})
 			},
 		)
+	})
+})
+
+router.post("/upload", (req, res) => {
+	const items = req.body.items
+
+	if (!items || !Array.isArray(items) || items.length === 0) {
+		return res.status(400).json({message: "Items array is required"})
+	}
+
+	const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
+	const createdBy = req.user.id
+
+	const query =
+		"INSERT INTO items (stock_code, part_no, mnemonic, class, item_name, uoi, created_at, created_by) VALUES ?"
+
+	const values = items.map((item) => [
+		item.stock_code,
+		item.part_no,
+		item.mnemonic,
+		item.class,
+		item.item_name,
+		item.uoi,
+		createdAt,
+		createdBy,
+	])
+
+	const checkStockCode = "SELECT stock_code FROM items WHERE stock_code = ?"
+
+	// Check for duplicates before inserting
+	let duplicateFound = false
+	items.forEach((item, index) => {
+		connection.query(checkStockCode, [item.stock_code], (err, results) => {
+			if (results.length > 0) {
+				duplicateFound = true
+				return res.status(409).json({
+					message: `Item with stock code ${item.stock_code} already exists`,
+				})
+			}
+
+			// If no duplicates found, insert all items
+			if (index === items.length - 1 && !duplicateFound) {
+				connection.query(query, [values], (err, result) => {
+					if (err) {
+						return res.status(500).json({
+							message: "Error creating items",
+							error: err,
+						})
+					}
+					res.status(201).json({
+						message: "Items created successfully",
+						insertedCount: result.affectedRows,
+					})
+				})
+			}
+		})
 	})
 })
 
