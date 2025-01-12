@@ -5,7 +5,9 @@ const {format} = require("date-fns")
 
 // Get all bookings
 router.get("/", (req, res) => {
-	const query = `
+	const {id} = req.query
+
+	let query = `
 		SELECT b.*, 
 			   u1.email AS created_by_email, 
 			   u2.email AS last_updated_by_email 
@@ -14,7 +16,12 @@ router.get("/", (req, res) => {
 		LEFT JOIN users u2 ON b.last_updated_by = u2.id
 	`
 
-	connection.query(query, (err, results) => {
+	// Add search condition if stock_code is provided
+	if (id) {
+		query += " WHERE b.id LIKE ?"
+	}
+
+	connection.query(query, [id ? `%${id}%` : null], (err, results) => {
 		if (err) {
 			res.status(500).send(err)
 			return
