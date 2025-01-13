@@ -5,7 +5,7 @@ const {format} = require("date-fns")
 
 // Get all bookings
 router.get("/", (req, res) => {
-	const {id} = req.query
+	const {id, status} = req.query
 
 	let query = `
 		SELECT b.*, 
@@ -28,13 +28,28 @@ router.get("/", (req, res) => {
 		LEFT JOIN booking_items bi ON b.id = bi.booking_id
 	`
 
+	// Add conditions for filtering
+	const conditions = []
+	const params = []
+
 	if (id) {
-		query += " WHERE b.id LIKE ?"
+		conditions.push("b.id LIKE ?")
+		params.push(`%${id}%`)
+	}
+
+	if (status) {
+		conditions.push("b.booking_status = ?")
+		params.push(status)
+	}
+
+	// Append conditions to the query if they exist
+	if (conditions.length > 0) {
+		query += " WHERE " + conditions.join(" AND ")
 	}
 
 	query += " GROUP BY b.id"
 
-	connection.query(query, [id ? `%${id}%` : null], (err, results) => {
+	connection.query(query, params, (err, results) => {
 		if (err) {
 			res.status(500).send(err)
 			return
@@ -238,7 +253,7 @@ router.put("/:id", (req, res) => {
 	if (posting_wr !== undefined) {
 		fieldsToUpdate.push("posting_wr = ?")
 		fieldsToUpdate.push("booking_status = ?")
-		values.push(posting_wr, 'closed')
+		values.push(posting_wr, "closed")
 	}
 
 	// Add the last updated fields
