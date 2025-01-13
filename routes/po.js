@@ -21,8 +21,7 @@ router.get("/", (req, res) => {
                JSON_OBJECT(
                    'id', it.id,
                    'stock_code', it.stock_code,
-                   'item_name', it.item_name,
-									 'qty', it.qty
+                   'item_name', it.item_name
                )
            ) AS items
     FROM booking_po bp
@@ -52,7 +51,7 @@ router.get("/", (req, res) => {
 			const formattedResults = results.map((item) => ({
 				...item,
 				created_by: item.created_by_email,
-				items: item.items, // No need to parse JSON
+				items: item.items.filter((i) => i.id !== null), // No need to parse JSON
 			}))
 
 			res.status(200).json(formattedResults)

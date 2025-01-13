@@ -126,7 +126,7 @@ router.get("/:id", (req, res) => {
 			const itemIds = itemResults.map((item) => item.item_id)
 
 			// Remove duplicates from po_details using JavaScript
-			const poDetails = booking.po_details
+			const poDetails = booking.po_details[0].status !== null
 				? booking.po_details.filter(
 						(value, index, self) =>
 							index ===

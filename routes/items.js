@@ -12,7 +12,6 @@ router.post("/", (req, res) => {
 		class: item_class,
 		item_name,
 		uoi,
-		qty,
 	} = req.body
 
 	if (
@@ -21,8 +20,7 @@ router.post("/", (req, res) => {
 		!mnemonic ||
 		!item_class ||
 		!item_name ||
-		!uoi ||
-		!qty
+		!uoi
 	) {
 		return res.status(400).json({message: "All fields are required"})
 	}
@@ -39,7 +37,7 @@ router.post("/", (req, res) => {
 		const createdBy = req.user.id
 
 		const query =
-			"INSERT INTO items (stock_code, part_no, mnemonic, class, item_name, uoi, created_at, created_by, qty) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+			"INSERT INTO items (stock_code, part_no, mnemonic, class, item_name, uoi, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
 
 		connection.query(
 			query,
@@ -52,7 +50,6 @@ router.post("/", (req, res) => {
 				uoi,
 				createdAt,
 				createdBy,
-				qty,
 			],
 			(err, result) => {
 				if (err) {
@@ -80,7 +77,7 @@ router.post("/upload", (req, res) => {
 	const createdBy = req.user.id
 
 	const query =
-		"INSERT INTO items (stock_code, part_no, mnemonic, class, item_name, uoi, created_at, created_by, qty) VALUES ?"
+		"INSERT INTO items (stock_code, part_no, mnemonic, class, item_name, uoi, created_at, created_by) VALUES ?"
 
 	const values = items.map((item) => [
 		item.stock_code,
@@ -91,7 +88,6 @@ router.post("/upload", (req, res) => {
 		item.uoi,
 		createdAt,
 		createdBy,
-		item.qty,
 	])
 
 	const checkStockCode = "SELECT stock_code FROM items WHERE stock_code = ?"
