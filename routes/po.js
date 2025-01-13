@@ -55,8 +55,6 @@ router.get("/", (req, res) => {
 				items: item.items, // No need to parse JSON
 			}))
 
-			console.log(formattedResults, "formatted")
-
 			res.status(200).json(formattedResults)
 		},
 	)

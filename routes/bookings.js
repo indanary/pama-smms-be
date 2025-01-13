@@ -208,7 +208,7 @@ router.post("/", (req, res) => {
 // Update bookings
 router.put("/:id", (req, res) => {
 	const bookingId = req.params.id
-	const {approved_status, received_date, wr_no} = req.body
+	const {approved_status, received_date, wr_no, posting_wr} = req.body
 
 	if (!bookingId) {
 		return res.status(400).json({message: "Booking ID is required"})
@@ -227,13 +227,18 @@ router.put("/:id", (req, res) => {
 	if (received_date !== undefined) {
 		fieldsToUpdate.push("received_date = ?")
 		fieldsToUpdate.push("received = ?")
-		fieldsToUpdate.push("booking_status = ?")
-		values.push(received_date, 1, "close")
+		values.push(received_date, 1)
 	}
 
 	if (wr_no !== undefined) {
 		fieldsToUpdate.push("wr_no = ?")
 		values.push(wr_no)
+	}
+
+	if (posting_wr !== undefined) {
+		fieldsToUpdate.push("posting_wr = ?")
+		fieldsToUpdate.push("booking_status = ?")
+		values.push(posting_wr, 'closed')
 	}
 
 	// Add the last updated fields
