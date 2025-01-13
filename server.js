@@ -26,5 +26,5 @@ app.use('/bookings', tokenMiddlewares, bookingRoutes);
 app.use('/booking_po', tokenMiddlewares, poRoutes);
 
 app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+  
 });
