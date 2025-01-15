@@ -97,7 +97,6 @@ router.post("/", (req, res) => {
 			],
 			(err, result) => {
 				if (err) {
-					console.log(err, "err")
 					return res
 						.status(500)
 						.json({message: "Error creating item", error: err})
