@@ -61,9 +61,13 @@ router.get("/", (req, res) => {
 			const formattedResults = results.map((booking) => {
 				const createdAt = new Date(booking.created_at)
 				const today = new Date()
-				const aging = Math.floor(
-					(today - createdAt) / (1000 * 60 * 60 * 24),
-				)
+				let aging = 0
+
+				if (booking.booking_status !== "closed") {
+					aging = Math.floor(
+						(today - createdAt) / (1000 * 60 * 60 * 24),
+					)
+				}
 
 				return {
 					id: booking.id,
