@@ -191,7 +191,7 @@ router.post("/upload", (req, res) => {
 
 	// Validate each item
 	for (const item of items) {
-		const {stock_code, part_no, mnemonic, item_class, item_name, uoi} = item
+		const {stock_code, part_no, mnemonic, class: item_class, item_name, uoi} = item
 
 		if (!stock_code) {
 			return res.status(400).json({message: "Stock code is required"})
