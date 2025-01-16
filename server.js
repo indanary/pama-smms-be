@@ -12,6 +12,10 @@ const poRoutes = require('./routes/pos')
 const app = express();
 const port = 3001;
 
+// increase the body size limit
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
 // Middleware to parse JSON
 app.use(express.json());
 
