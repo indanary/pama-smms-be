@@ -39,6 +39,12 @@ router.get("/", (req, res) => {
 			}
 
 			const formattedResults = results.map((booking) => {
+				const createdAt = new Date(booking.created_at)
+				const today = new Date()
+				const aging = Math.floor(
+					(today - createdAt) / (1000 * 60 * 60 * 24),
+				)
+
 				return {
 					id: booking.id,
 					approved_status: booking.approved_status,
@@ -58,6 +64,7 @@ router.get("/", (req, res) => {
 					po_numbers: booking.po_numbers
 						? booking.po_numbers.split(",")
 						: [],
+					aging: aging,
 
 					created_by_email: undefined,
 					last_updated_by_email: undefined,
@@ -183,6 +190,10 @@ router.get("/:id", (req, res) => {
 				.json({message: "Error fetching bookings", error: err})
 		}
 
+		const createdAt = new Date(results[0].created_at)
+		const today = new Date()
+		const aging = Math.floor((today - createdAt) / (1000 * 60 * 60 * 24))
+
 		const formattedResults = {
 			id: results[0].id,
 			approved_status: results[0].approved_status,
@@ -202,6 +213,7 @@ router.get("/:id", (req, res) => {
 			po_numbers: results[0].po_numbers
 				? results[0].po_numbers.split(",")
 				: [],
+			aging: aging,
 
 			created_by_email: undefined,
 			last_updated_by_email: undefined,
@@ -358,12 +370,10 @@ router.put("/:id/delete", (req, res) => {
 
 			connection.query(updateBookingPoQuery, [id], (err) => {
 				if (err) {
-					return res
-						.status(500)
-						.json({
-							message: "Error updating booking po",
-							error: err,
-						})
+					return res.status(500).json({
+						message: "Error updating booking po",
+						error: err,
+					})
 				}
 
 				res.status(200).json({message: "Booking deleted successfully"})
