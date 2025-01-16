@@ -315,6 +315,63 @@ router.put("/:id/po", (req, res) => {
 	})
 })
 
+// delete bookings
+router.put("/:id/delete", (req, res) => {
+	const {id} = req.params
+	const {remove_reason} = req.body
+
+	// Update query to set is_removed to true and insert remove_reason in the bookings table
+	const updateBookingsQuery = `
+		UPDATE bookings 
+		SET is_removed = 1, remove_reason = ? 
+		WHERE id = ?
+	`
+
+	// Update query to set is_removed to true in the booking_items table
+	const updateBookingItemsQuery = `
+		UPDATE booking_items 
+		SET is_removed = 1 
+		WHERE booking_id = ?
+	`
+
+	// Update query to set is_removed to true in the booking_po table
+	const updateBookingPoQuery = `
+		UPDATE booking_po 
+		SET is_removed = 1 
+		WHERE booking_id = ?
+	`
+
+	// Execute all queries in sequence
+	connection.query(updateBookingsQuery, [remove_reason, id], (err) => {
+		if (err) {
+			return res
+				.status(500)
+				.json({message: "Error updating bookings", error: err})
+		}
+
+		connection.query(updateBookingItemsQuery, [id], (err) => {
+			if (err) {
+				return res
+					.status(500)
+					.json({message: "Error updating booking items", error: err})
+			}
+
+			connection.query(updateBookingPoQuery, [id], (err) => {
+				if (err) {
+					return res
+						.status(500)
+						.json({
+							message: "Error updating booking po",
+							error: err,
+						})
+				}
+
+				res.status(200).json({message: "Booking deleted successfully"})
+			})
+		})
+	})
+})
+
 // update bookings
 router.put("/:id", (req, res) => {
 	const bookingId = req.params.id
