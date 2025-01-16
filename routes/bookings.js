@@ -5,7 +5,8 @@ const {format} = require("date-fns")
 
 // get list
 router.get("/", (req, res) => {
-	const {search} = req.query
+	const {search, page = 1, limit = 10} = req.query
+	const offset = (page - 1) * limit
 
 	let queryListBooking = `
 		SELECT b.*,
@@ -20,18 +21,37 @@ router.get("/", (req, res) => {
 	`
 
 	// Add search condition
-	if (search) {
-		queryListBooking += `
-			WHERE b.id = ? OR bi.po_number LIKE ?
-		`
-	}
+	const searchQuery = search ? ` AND (b.id = ? OR bi.po_number LIKE ?)` : ""
+	queryListBooking += searchQuery
+	queryListBooking += ` GROUP BY b.id LIMIT ? OFFSET ?`
 
-	queryListBooking += ` GROUP BY b.id`
+	const queryTotalCount = `
+		SELECT COUNT(DISTINCT b.id) AS total
+		FROM bookings b
+		LEFT JOIN booking_items bi ON b.id = bi.booking_id
+		WHERE b.is_removed = 0 ${search ? "AND (b.id = ? OR bi.po_number LIKE ?)" : ""}
+	`
 
-	connection.query(
-		queryListBooking,
-		[search, `%${search}%`],
-		(err, results) => {
+	// Query parameters
+	const queryParams = search
+		? [search, `%${search}%`, parseInt(limit), parseInt(offset)]
+		: [parseInt(limit), parseInt(offset)]
+
+	const totalCountParams = search ? [search, `%${search}%`] : []
+
+	// Get the total count of items
+	connection.query(queryTotalCount, totalCountParams, (err, countResults) => {
+		if (err) {
+			return res
+				.status(500)
+				.json({message: "Error fetching count", error: err})
+		}
+
+		const totalItems = countResults[0].total
+		const totalPages = Math.ceil(totalItems / limit)
+
+		// Get the paginated data
+		connection.query(queryListBooking, queryParams, (err, results) => {
 			if (err) {
 				return res
 					.status(500)
@@ -65,15 +85,18 @@ router.get("/", (req, res) => {
 						? booking.po_numbers.split(",")
 						: [],
 					aging: aging,
-
-					created_by_email: undefined,
-					last_updated_by_email: undefined,
 				}
 			})
 
-			res.status(200).json(formattedResults)
-		},
-	)
+			res.status(200).json({
+				page: parseInt(page),
+				limit: parseInt(limit),
+				totalItems,
+				totalPages,
+				data: formattedResults,
+			})
+		})
+	})
 })
 
 // get list booking po
