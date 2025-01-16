@@ -3,6 +3,7 @@ const router = express.Router()
 const connection = require("../db")
 const {v4: uuidv4} = require("uuid")
 const bcrypt = require("bcryptjs")
+const {format} = require("date-fns")
 
 // Get all users
 router.get("/", (req, res) => {
@@ -114,11 +115,14 @@ router.post("/", (req, res) => {
 
 		const hashPass = await bcrypt.hash(password, 10)
 
+		const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
+		const createdBy = req.user.id
+
 		const query =
-			"INSERT INTO users (id, name, email, password, role) VALUES (?, ?, ?, ?, ?)"
+			"INSERT INTO users (id, name, email, password, role, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)"
 		connection.query(
 			query,
-			[userId, name, email, hashPass, role],
+			[userId, name, email, hashPass, role, createdAt, createdBy],
 			(err, results) => {
 				if (err) {
 					res.status(500).send(err)
