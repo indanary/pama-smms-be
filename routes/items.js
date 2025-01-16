@@ -5,9 +5,25 @@ const {format} = require("date-fns")
 
 // get list
 router.get("/", (req, res) => {
-	const {search} = req.query
+	const {search, page = 1, limit = 10} = req.query
 
-	let query = `
+	// Query to get total count of matching rows
+	let countQuery = `
+    SELECT COUNT(*) as total
+    FROM items i
+    LEFT JOIN users u1 ON i.created_by = u1.id
+  `
+
+	if (search) {
+		countQuery += `
+      WHERE i.stock_code LIKE ?
+        OR i.part_no LIKE ?
+        OR i.item_name LIKE ?
+    `
+	}
+
+	// Query to get paginated results
+	let dataQuery = `
     SELECT i.*,
         u1.email AS created_by_email
     FROM items i
@@ -15,38 +31,67 @@ router.get("/", (req, res) => {
   `
 
 	if (search) {
-		query += `
+		dataQuery += `
       WHERE i.stock_code LIKE ?
         OR i.part_no LIKE ?
         OR i.item_name LIKE ?
     `
 	}
 
-	connection.query(
-		query,
-		search ? [`%${search}%`, `%${search}%`, `%${search}%`] : [],
-		(err, result) => {
-			if (err) {
-				return res
-					.status(500)
-					.json({message: "Error fetching items", error: err})
-			}
+	// Calculate OFFSET
+	const offset = (page - 1) * limit
+	dataQuery += `
+    LIMIT ? OFFSET ?
+  `
 
-			const formattedResults = result.map((item) => ({
-				id: item.id,
-				stock_code: item.stock_code,
-				part_no: item.part_no,
-				mnemonic: item.mnemonic,
-				class: item.class,
-				item_name: item.item_name,
-				uoi: item.uoi,
-				created_at: item.created_at,
-				created_by: item.created_by_email,
-			}))
+	const searchParams = search
+		? [`%${search}%`, `%${search}%`, `%${search}%`]
+		: []
 
-			res.status(200).json(formattedResults)
-		},
-	)
+	// Execute the count query
+	connection.query(countQuery, searchParams, (err, countResult) => {
+		if (err) {
+			return res
+				.status(500)
+				.json({message: "Error fetching items count", error: err})
+		}
+
+		const totalItems = countResult[0].total
+		const totalPages = Math.ceil(totalItems / limit)
+
+		// Execute the data query
+		connection.query(
+			dataQuery,
+			[...searchParams, parseInt(limit), parseInt(offset)],
+			(err, result) => {
+				if (err) {
+					return res
+						.status(500)
+						.json({message: "Error fetching items", error: err})
+				}
+
+				const formattedResults = result.map((item) => ({
+					id: item.id,
+					stock_code: item.stock_code,
+					part_no: item.part_no,
+					mnemonic: item.mnemonic,
+					class: item.class,
+					item_name: item.item_name,
+					uoi: item.uoi,
+					created_at: item.created_at,
+					created_by: item.created_by_email,
+				}))
+
+				res.status(200).json({
+					page: parseInt(page),
+					limit: parseInt(limit),
+					totalItems,
+					totalPages,
+					data: formattedResults,
+				})
+			},
+		)
+	})
 })
 
 // Get list of booking items with quantity
@@ -191,7 +236,14 @@ router.post("/upload", (req, res) => {
 
 	// Validate each item
 	for (const item of items) {
-		const {stock_code, part_no, mnemonic, class: item_class, item_name, uoi} = item
+		const {
+			stock_code,
+			part_no,
+			mnemonic,
+			class: item_class,
+			item_name,
+			uoi,
+		} = item
 
 		if (!stock_code) {
 			return res.status(400).json({message: "Stock code is required"})
@@ -247,12 +299,10 @@ router.post("/upload", (req, res) => {
 				if (index === items.length - 1 && !duplicateFound) {
 					connection.query(query, [values], (err, result) => {
 						if (err) {
-							return res
-								.status(500)
-								.json({
-									message: "Error creating items",
-									error: err,
-								})
+							return res.status(500).json({
+								message: "Error creating items",
+								error: err,
+							})
 						}
 						res.status(201).json({
 							message: "Items created successfully",
