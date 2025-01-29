@@ -2,6 +2,8 @@ const express = require("express")
 const router = express.Router()
 const connection = require("../db")
 const {format} = require("date-fns")
+const XLSX = require("xlsx")
+const fs = require("fs")
 
 // get list
 router.get("/", (req, res) => {
@@ -100,6 +102,80 @@ router.get("/", (req, res) => {
 				data: formattedResults,
 			})
 		})
+	})
+})
+
+// export booking
+router.get("/export", (req, res) => {
+	let queryListBooking = `
+			SELECT b.*,
+					u1.email AS created_by_email,
+					u2.email AS last_updated_by_email,
+					GROUP_CONCAT(bi.po_number) AS po_numbers
+			FROM bookings b
+			LEFT JOIN users u1 ON b.created_by = u1.id
+			LEFT JOIN users u2 ON b.last_updated_by = u2.id
+			LEFT JOIN booking_items bi ON b.id = bi.booking_id
+			WHERE b.is_removed = 0
+			GROUP BY b.id
+	`
+
+	connection.query(queryListBooking, (err, results) => {
+		if (err) {
+			return res
+				.status(500)
+				.json({message: "Error fetching bookings", error: err})
+		}
+
+		// Format data
+		const formattedResults = results.map((booking) => {
+			const createdAt = new Date(booking.created_at)
+			const today = new Date()
+			let aging = 0
+
+			if (booking.booking_status !== "closed") {
+				aging = Math.floor((today - createdAt) / (1000 * 60 * 60 * 24))
+			}
+
+			return {
+				ID: "BOOKSM" + booking.id,
+				Description: booking.description,
+				"CN No": booking.cn_no,
+				"Approved Status": booking.approved_status ? true : false,
+				"Booking Status": booking.booking_status,
+				"Aging (Days)": aging,
+				"PO Numbers": booking.po_numbers
+					? booking.po_numbers.split(",").join(", ")
+					: "",
+				"Received Date": booking.received_date,
+				Received: booking.received ? true : false,
+				"WR No": booking.wr_no,
+				"Posting WR": booking.posting_wr ? true : false,
+				"Created At": booking.created_at,
+				"Created By": booking.created_by_email,
+				"Last Updated At": booking.last_updated_at,
+				"Last Updated By": booking.last_updated_by_email ?? "",
+				// "Is Removed": booking.is_removed,
+				// "Remove Reason": booking.remove_reason,
+			}
+		})
+
+		// Create a new workbook and worksheet
+		const workbook = XLSX.utils.book_new()
+		const worksheet = XLSX.utils.json_to_sheet(formattedResults)
+		XLSX.utils.book_append_sheet(workbook, worksheet, "Bookings")
+
+		// Write to buffer and send response
+		const buffer = XLSX.write(workbook, {type: "buffer", bookType: "xlsx"})
+		res.setHeader(
+			"Content-Disposition",
+			"attachment; filename=bookings.xlsx",
+		)
+		res.setHeader(
+			"Content-Type",
+			"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		)
+		res.send(buffer)
 	})
 })
 
