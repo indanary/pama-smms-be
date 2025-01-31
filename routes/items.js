@@ -103,6 +103,8 @@ router.get("/:id/booking", (req, res) => {
 	let query = `
 		SELECT i.*,
 			bi.item_qty,
+			bi.total_received_items,
+			bi.po_number,
 			u1.email AS created_by_email
 		FROM booking_items bi
 		JOIN items i ON bi.item_id = i.id
@@ -141,18 +143,22 @@ router.get("/:id/booking", (req, res) => {
 				.json({message: "Error fetching items", error: err})
 		}
 
-		const formattedResults = result.map((item) => ({
-			id: item.id,
-			stock_code: item.stock_code,
-			part_no: item.part_no,
-			mnemonic: item.mnemonic,
-			class: item.class,
-			item_name: item.item_name,
-			uoi: item.uoi,
-			item_qty: item.item_qty,
-			created_at: item.created_at,
-			created_by: item.created_by_email,
-		}))
+		const formattedResults = result.map((item) => {
+			return {
+				id: item.id,
+				stock_code: item.stock_code,
+				part_no: item.part_no,
+				mnemonic: item.mnemonic,
+				class: item.class,
+				item_name: item.item_name,
+				uoi: item.uoi,
+				item_qty: item.item_qty,
+				created_at: item.created_at,
+				created_by: item.created_by_email,
+				total_received_items: item.total_received_items,
+				po_number: item.po_number,
+			}
+		})
 
 		res.status(200).json(formattedResults)
 	})
@@ -310,6 +316,124 @@ router.post("/upload", (req, res) => {
 						})
 					})
 				}
+			},
+		)
+	})
+})
+
+// update total received items
+router.put("/update-received-items", (req, res) => {
+	const {item_id, po_number, total_received_items} = req.body
+
+	if (!item_id || !po_number || !total_received_items) {
+		return res.status(400).json({message: "Missing required fields"})
+	}
+
+	if (isNaN(total_received_items) || total_received_items < 1) {
+		return res
+			.status(400)
+			.json({message: "Total received items must be a positive number"})
+	}
+
+	connection.beginTransaction((err) => {
+		if (err) {
+			return res
+				.status(500)
+				.json({message: "Transaction error", error: err})
+		}
+
+		// Step 1: Update total_received_items in booking_items
+		const updateBookingItemsQuery = `
+					UPDATE booking_items 
+					SET total_received_items = ? 
+					WHERE item_id = ?
+			`
+
+		connection.query(
+			updateBookingItemsQuery,
+			[total_received_items, item_id],
+			(err, result) => {
+				if (err) {
+					return connection.rollback(() => {
+						res.status(500).json({
+							message: "Error updating booking_items",
+							error: err,
+						})
+					})
+				}
+
+				// Step 2: Get total_qty_items from booking_po
+				const getBookingPoQuery = `
+							SELECT total_qty_items
+							FROM booking_po 
+							WHERE po_number = ?
+					`
+
+				connection.query(
+					getBookingPoQuery,
+					[po_number],
+					(err, poResults) => {
+						if (err || poResults.length === 0) {
+							return connection.rollback(() => {
+								res.status(500).json({
+									message: "Error fetching booking_po",
+									error: err,
+								})
+							})
+						}
+
+						const totalQtyItems = poResults[0].total_qty_items
+						
+
+						// Determine new status
+						let newStatus = "partial"
+						if (total_received_items >= totalQtyItems) {
+							newStatus = "completed"
+						}
+
+						// Step 3: Update booking_po with new total_received_items and status
+						const updateBookingPoQuery = `
+							UPDATE booking_po 
+							SET total_received_items = ?, status = ? 
+							WHERE po_number = ?
+						`
+
+						connection.query(
+							updateBookingPoQuery,
+							[total_received_items, newStatus, po_number],
+							(err, result) => {
+								if (err) {
+									return connection.rollback(() => {
+										res.status(500).json({
+											message:
+												"Error updating booking po",
+											error: err,
+										})
+									})
+								}
+
+								// Commit transaction
+								connection.commit((err) => {
+									if (err) {
+										return connection.rollback(() => {
+											res.status(500).json({
+												message:
+													"Transaction commit error",
+												error: err,
+											})
+										})
+									}
+
+									res.status(200).json({
+										message:
+											"Successfully updated total received items",
+										newStatus,
+									})
+								})
+							},
+						)
+					},
+				)
 			},
 		)
 	})
