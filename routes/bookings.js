@@ -3,7 +3,6 @@ const router = express.Router()
 const connection = require("../db")
 const {format} = require("date-fns")
 const XLSX = require("xlsx")
-const fs = require("fs")
 
 // get list
 router.get("/", (req, res) => {
