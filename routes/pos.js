@@ -165,4 +165,31 @@ router.put("/:id", (req, res) => {
 	})
 })
 
+// delete po
+router.delete("/:id", (req, res) => {
+	const {id} = req.params
+
+	if (!id) {
+		return res.status(400).json({message: "Missing required id parameter"})
+	}
+
+	const deleteQuery = `DELETE FROM booking_po WHERE id = ?`
+
+	connection.query(deleteQuery, [id], (err, result) => {
+		if (err) {
+			return res
+				.status(500)
+				.json({message: "Error deleting booking_po", error: err})
+		}
+
+		if (result.affectedRows === 0) {
+			return res
+				.status(404)
+				.json({message: "No record found with the given ID"})
+		}
+
+		res.status(200).json({message: "Booking PO deleted successfully"})
+	})
+})
+
 module.exports = router
