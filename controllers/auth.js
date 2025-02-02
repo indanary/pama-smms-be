@@ -29,13 +29,23 @@ const loginUser = async (req, res) => {
 	const query = "SELECT * FROM users WHERE email = ?"
 	connection.query(query, [email], async (err, results) => {
 		if (err) {
-			return res.status(500).send(err)
+			res.status(500).send(err)
 		}
 		if (results.length === 0) {
 			return res.status(400).json({message: "Invalid credentials"})
 		}
 
 		const user = results[0]
+
+		// Check if user is active
+		if (!user.is_active) {
+			return res
+				.status(403)
+				.json({
+					message:
+						"Your account is inactive. Please contact support.",
+				})
+		}
 
 		// Compare password
 		const isMatch = await bcrypt.compare(password, user.password)
@@ -47,8 +57,7 @@ const loginUser = async (req, res) => {
 		const accessToken = generateAccessToken(user)
 		const refreshToken = generateRefreshToken(user)
 
-		// Optionally store refresh token in database (recommended for extra security)
-
+		// Send response
 		res.status(200).json({
 			access_token: accessToken,
 			refresh_token: refreshToken,

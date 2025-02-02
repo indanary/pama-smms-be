@@ -7,11 +7,12 @@ const {format} = require("date-fns")
 
 // Get all users
 router.get("/", (req, res) => {
-	const { page = 1, limit = 10 } = req.query; // Default page to 1 and limit to 10
-	const offset = (page - 1) * limit;
+	const {page = 1, limit = 10} = req.query // Default page to 1 and limit to 10
+	const offset = (page - 1) * limit
 
 	// Query to get total count of users
-	const queryTotalCount = "SELECT COUNT(*) AS total FROM users WHERE is_removed = 0";
+	const queryTotalCount =
+		"SELECT COUNT(*) AS total FROM users WHERE is_removed = 0"
 
 	// Query to get paginated users with created_by email
 	const queryPaginatedUsers = `
@@ -20,17 +21,17 @@ router.get("/", (req, res) => {
 		LEFT JOIN users u2 ON u.created_by = u2.id
 		WHERE u.is_removed = 0
 		LIMIT ? OFFSET ?
-	`;
+	`
 
 	// Execute query to get total count of users
 	connection.query(queryTotalCount, (err, countResults) => {
 		if (err) {
-			res.status(500).send(err);
-			return;
+			res.status(500).send(err)
+			return
 		}
 
-		const totalItems = countResults[0].total;
-		const totalPages = Math.ceil(totalItems / limit);
+		const totalItems = countResults[0].total
+		const totalPages = Math.ceil(totalItems / limit)
 
 		// Execute query to get paginated users
 		connection.query(
@@ -38,8 +39,8 @@ router.get("/", (req, res) => {
 			[parseInt(limit), parseInt(offset)],
 			(err, results) => {
 				if (err) {
-					res.status(500).send(err);
-					return;
+					res.status(500).send(err)
+					return
 				}
 
 				const formattedResults = results.map((x) => ({
@@ -51,8 +52,10 @@ router.get("/", (req, res) => {
 					created_by: x.created_by_email, // Use created_by_email
 					last_updated_at: x.last_updated_at,
 					last_updated_by: x.last_updated_by,
-					created_by_email: undefined
-				}));
+					is_active: x.is_active,
+
+					created_by_email: undefined,
+				}))
 
 				// Respond with paginated data and pagination info
 				res.status(200).json({
@@ -61,12 +64,11 @@ router.get("/", (req, res) => {
 					totalItems,
 					totalPages,
 					data: formattedResults,
-				});
-			}
-		);
-	});
-});
-
+				})
+			},
+		)
+	})
+})
 
 // Get user profile
 router.get("/profile", (req, res) => {
@@ -94,6 +96,7 @@ router.get("/profile", (req, res) => {
 				created_by: results[0].created_by,
 				last_updated_at: results[0].last_updated_at,
 				last_updated_by: results[0].last_updated_by,
+				is_active: results[0].is_active,
 			}
 
 			res.status(200).json(resData)
@@ -137,6 +140,36 @@ router.post("/", (req, res) => {
 				})
 			},
 		)
+	})
+})
+
+// update status user
+router.put("/:id/activate", (req, res) => {
+	const {id} = req.params
+	const {is_active} = req.body
+
+	if (typeof is_active !== "boolean") {
+		return res
+			.status(400)
+			.json({message: "is_active must be a boolean value"})
+	}
+
+	const query = "UPDATE users SET is_active = ? WHERE id = ?"
+
+	connection.query(query, [is_active, id], (err, results) => {
+		if (err) {
+			res.status(500).send(err)
+		}
+
+		if (results.affectedRows === 0) {
+			return res.status(404).json({message: "User not found"})
+		}
+
+		res.status(200).json({
+			message: `User ${
+				is_active ? "activated" : "deactivated"
+			} successfully`,
+		})
 	})
 })
 
