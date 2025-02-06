@@ -225,100 +225,76 @@ router.post("/", (req, res) => {
 })
 
 // upload item
-router.post("/upload", (req, res) => {
+router.post("/upload", async (req, res) => {
 	const items = req.body.items
 
 	if (!items || !Array.isArray(items) || items.length === 0) {
-		return res.status(400).json({message: "Items data is required"})
+		return res.status(400).json({ message: "Items data is required" })
 	}
 
 	const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
 	const createdBy = req.user.id
 
-	const query =
-		"INSERT INTO items (stock_code, part_no, mnemonic, class, item_name, uoi, created_at, created_by) VALUES ?"
+	// Extract stock codes to check for duplicates
+	const stockCodes = items.map((item) => item.stock_code)
 
-	const values = []
+	try {
+		// Fetch existing stock codes in a single query
+		const [existingItems] = await connection
+			.promise()
+			.query("SELECT stock_code FROM items WHERE stock_code IN (?)", [
+				stockCodes,
+			])
 
-	// Validate each item
-	for (const item of items) {
-		const {
-			stock_code,
-			part_no,
-			mnemonic,
-			class: item_class,
-			item_name,
-			uoi,
-		} = item
-
-		if (!stock_code) {
-			return res.status(400).json({message: "Stock code is required"})
-		}
-		if (!part_no) {
-			return res.status(400).json({message: "Part no is required"})
-		}
-		if (!mnemonic) {
-			return res.status(400).json({message: "Mnemonic is required"})
-		}
-		if (!item_class) {
-			return res.status(400).json({message: "Item class is required"})
-		}
-		if (!item_name) {
-			return res.status(400).json({message: "Item name is required"})
-		}
-		if (!uoi) {
-			return res.status(400).json({message: "UOI is required"})
-		}
-
-		values.push([
-			stock_code,
-			part_no,
-			mnemonic,
-			item_class,
-			item_name,
-			uoi,
-			createdAt,
-			createdBy,
-		])
-	}
-
-	// Check for duplicates
-	let duplicateFound = false
-	items.forEach((item, index) => {
-		connection.query(
-			"SELECT stock_code FROM items WHERE stock_code = ?",
-			[item.stock_code],
-			(err, results) => {
-				if (err) {
-					return res
-						.status(500)
-						.json({message: "Database error", error: err})
-				}
-				if (results.length > 0) {
-					duplicateFound = true
-					return res.status(409).json({
-						message: `Item with stock code ${item.stock_code} already exists`,
-					})
-				}
-
-				// If no duplicates found and it's the last item, insert all items
-				if (index === items.length - 1 && !duplicateFound) {
-					connection.query(query, [values], (err, result) => {
-						if (err) {
-							return res.status(500).json({
-								message: "Error creating items",
-								error: err,
-							})
-						}
-						res.status(201).json({
-							message: "Items created successfully",
-							insertedCount: result.affectedRows,
-						})
-					})
-				}
-			},
+		const existingStockCodes = new Set(
+			existingItems.map((row) => row.stock_code),
 		)
-	})
+
+		// Filter out items that already exist
+		const newItems = items.filter(
+			(item) => !existingStockCodes.has(item.stock_code),
+		)
+
+		if (newItems.length === 0) {
+			return res.status(409).json({
+				message: "All items already exist",
+			})
+		}
+
+		// Prepare bulk insert values
+		const values = newItems.map(
+			({ stock_code, part_no, mnemonic, class: item_class, item_name, uoi }) => [
+				stock_code,
+				part_no,
+				mnemonic,
+				item_class,
+				item_name,
+				uoi,
+				createdAt,
+				createdBy,
+			],
+		)
+
+		// Start a transaction for bulk insert
+		await connection.promise().beginTransaction()
+
+		const query =
+			"INSERT INTO items (stock_code, part_no, mnemonic, class, item_name, uoi, created_at, created_by) VALUES ?"
+
+		const [result] = await connection.promise().query(query, [values])
+
+		// Commit transaction
+		await connection.promise().commit()
+
+		res.status(201).json({
+			message: "Items created successfully",
+			insertedCount: result.affectedRows,
+		})
+	} catch (error) {
+		// Rollback transaction on error
+		await connection.promise().rollback()
+		res.status(500).json({ message: "Error processing request", error })
+	}
 })
 
 // update total received items
