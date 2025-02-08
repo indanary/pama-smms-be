@@ -229,7 +229,7 @@ router.post("/upload", async (req, res) => {
 	const items = req.body.items
 
 	if (!items || !Array.isArray(items) || items.length === 0) {
-		return res.status(400).json({ message: "Items data is required" })
+		return res.status(400).json({message: "Items data is required"})
 	}
 
 	const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
@@ -263,7 +263,14 @@ router.post("/upload", async (req, res) => {
 
 		// Prepare bulk insert values
 		const values = newItems.map(
-			({ stock_code, part_no, mnemonic, class: item_class, item_name, uoi }) => [
+			({
+				stock_code,
+				part_no,
+				mnemonic,
+				class: item_class,
+				item_name,
+				uoi,
+			}) => [
 				stock_code,
 				part_no,
 				mnemonic,
@@ -293,126 +300,102 @@ router.post("/upload", async (req, res) => {
 	} catch (error) {
 		// Rollback transaction on error
 		await connection.promise().rollback()
-		res.status(500).json({ message: "Error processing request", error })
+		res.status(500).json({message: "Error processing request", error})
 	}
 })
 
 // update total received items
-router.put("/update-received-items", (req, res) => {
-	const {item_id, po_number, total_received_items} = req.body
+router.put("/update-received-items", async (req, res) => {
+	try {
+		const {booking_id, po_number, item_id, total_received_items} = req.body
 
-	if (!item_id || !po_number || !total_received_items) {
-		return res.status(400).json({message: "Missing required fields"})
-	}
-
-	if (isNaN(total_received_items) || total_received_items < 1) {
-		return res
-			.status(400)
-			.json({message: "Total received items must be a positive number"})
-	}
-
-	connection.beginTransaction((err) => {
-		if (err) {
+		// Validate input
+		if (!booking_id || !item_id) {
 			return res
-				.status(500)
-				.json({message: "Transaction error", error: err})
+				.status(400)
+				.json({message: "Booking ID and Item ID are required"})
+		}
+		if (total_received_items === undefined || total_received_items < 0) {
+			return res
+				.status(400)
+				.json({message: "Invalid total_received_items"})
 		}
 
-		// Step 1: Update total_received_items in booking_items
-		const updateBookingItemsQuery = `
-					UPDATE booking_items 
-					SET total_received_items = ? 
-					WHERE item_id = ?
-			`
+		// Update total_received_items in booking_items based on booking_id, po_number, and item_id
+		const queryUpdateBookingItems = `
+			UPDATE booking_items 
+			SET total_received_items = ? 
+			WHERE booking_id = ? 
+			AND item_id = ? 
+			AND (po_number = ? OR po_number IS NULL)
+		`
 
-		connection.query(
-			updateBookingItemsQuery,
-			[total_received_items, item_id],
-			(err, result) => {
-				if (err) {
-					return connection.rollback(() => {
-						res.status(500).json({
-							message: "Error updating booking_items",
-							error: err,
-						})
-					})
-				}
+		await connection
+			.promise()
+			.query(queryUpdateBookingItems, [
+				total_received_items,
+				booking_id,
+				item_id,
+				po_number,
+			])
 
-				// Step 2: Get total_qty_items from booking_po
-				const getBookingPoQuery = `
-							SELECT total_qty_items
-							FROM booking_po 
-							WHERE po_number = ?
-					`
+		// Sum all total_received_items for the same booking_id in booking_items
+		const querySumReceived = `
+			SELECT SUM(total_received_items) AS total_sum 
+			FROM booking_items 
+			WHERE booking_id = ?
+		`
 
-				connection.query(
-					getBookingPoQuery,
-					[po_number],
-					(err, poResults) => {
-						if (err || poResults.length === 0) {
-							return connection.rollback(() => {
-								res.status(500).json({
-									message: "Error fetching booking_po",
-									error: err,
-								})
-							})
-						}
+		const [sumResult] = await connection
+			.promise()
+			.query(querySumReceived, [booking_id])
+		const totalSum = sumResult[0].total_sum || 0 // Ensure it's at least 0
 
-						const totalQtyItems = poResults[0].total_qty_items
-						
+		// Get total_qty_items from booking_po
+		const queryGetTotalQty = `
+			SELECT total_qty_items 
+			FROM booking_po 
+			WHERE booking_id = ?
+		`
 
-						// Determine new status
-						let newStatus = "partial"
-						if (total_received_items >= totalQtyItems) {
-							newStatus = "completed"
-						}
+		const [poResult] = await connection
+			.promise()
+			.query(queryGetTotalQty, [booking_id])
 
-						// Step 3: Update booking_po with new total_received_items and status
-						const updateBookingPoQuery = `
-							UPDATE booking_po 
-							SET total_received_items = ?, status = ? 
-							WHERE po_number = ?
-						`
+		if (poResult.length === 0) {
+			return res.status(404).json({message: "Booking PO not found"})
+		}
 
-						connection.query(
-							updateBookingPoQuery,
-							[total_received_items, newStatus, po_number],
-							(err, result) => {
-								if (err) {
-									return connection.rollback(() => {
-										res.status(500).json({
-											message:
-												"Error updating booking po",
-											error: err,
-										})
-									})
-								}
+		const totalQty = poResult[0].total_qty_items
 
-								// Commit transaction
-								connection.commit((err) => {
-									if (err) {
-										return connection.rollback(() => {
-											res.status(500).json({
-												message:
-													"Transaction commit error",
-												error: err,
-											})
-										})
-									}
+		// Determine status
+		let status = "partial"
+		if (totalSum === totalQty) {
+			status = "completed"
+		}
 
-									res.status(200).json({
-										message:
-											"Successfully updated total received items",
-										newStatus,
-									})
-								})
-							},
-						)
-					},
-				)
-			},
-		)
-	})
+		// Update total_received_items and status in booking_po
+		const queryUpdateBookingPo = `
+			UPDATE booking_po 
+			SET total_received_items = ?, status = ? 
+			WHERE booking_id = ?
+		`
+
+		await connection
+			.promise()
+			.query(queryUpdateBookingPo, [totalSum, status, booking_id])
+
+		res.status(200).json({
+			message: "Total received items and status updated successfully",
+			total_received_items_in_booking_po: totalSum,
+			status: status,
+		})
+	} catch (error) {
+		res.status(500).json({
+			message: "Error updating total received items and status",
+			error,
+		})
+	}
 })
 
 module.exports = router
