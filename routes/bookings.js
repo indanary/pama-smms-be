@@ -110,19 +110,19 @@ router.get("/", (req, res) => {
 // const fetchAndUpdateBookingItems = async () => {
 // 	try {
 // 		const query = `
-// 			SELECT 
-// 				bi.booking_id, 
-// 				COALESCE(b.description, 'No Description') AS description, 
-// 				COALESCE(b.cn_no, 'No CN No') AS cn_no, 
-// 				bi.po_number, 
-// 				bi.item_qty, 
-// 				bi.total_received_items, 
-// 				COALESCE(i.id, 0) AS item_id, 
-// 				COALESCE(i.stock_code, 'Unknown') AS stock_code, 
-// 				COALESCE(i.part_no, 'Unknown') AS part_no, 
-// 				COALESCE(i.mnemonic, 'Unknown') AS mnemonic, 
-// 				COALESCE(i.class, 'Unknown') AS class, 
-// 				COALESCE(i.item_name, 'Unknown') AS item_name, 
+// 			SELECT
+// 				bi.booking_id,
+// 				COALESCE(b.description, 'No Description') AS description,
+// 				COALESCE(b.cn_no, 'No CN No') AS cn_no,
+// 				bi.po_number,
+// 				bi.item_qty,
+// 				bi.total_received_items,
+// 				COALESCE(i.id, 0) AS item_id,
+// 				COALESCE(i.stock_code, 'Unknown') AS stock_code,
+// 				COALESCE(i.part_no, 'Unknown') AS part_no,
+// 				COALESCE(i.mnemonic, 'Unknown') AS mnemonic,
+// 				COALESCE(i.class, 'Unknown') AS class,
+// 				COALESCE(i.item_name, 'Unknown') AS item_name,
 // 				COALESCE(i.uoi, 'Unknown') AS uoi
 // 			FROM booking_items bi
 // 			LEFT JOIN bookings b ON bi.booking_id = b.id
@@ -167,9 +167,9 @@ const fetchBookingItemsHandler = async (req, res) => {
 		const result = await fetchAndUpdateBookingItems()
 		res.status(201).json(result)
 	} catch (error) {
-		res.status(500).json({ message: "Error updating booking items", error });
+		res.status(500).json({message: "Error updating booking items", error})
 	}
-};
+}
 
 // **Schedule job: Runs every Saturday at 9 AM**
 cron.schedule("0 8 * * *", async () => {
@@ -178,7 +178,7 @@ cron.schedule("0 8 * * *", async () => {
 	} catch (error) {
 		console.error("Error in scheduled job:", error)
 	}
-});
+})
 
 // export booking
 router.get("/export", (req, res) => {
@@ -255,93 +255,81 @@ router.get("/export", (req, res) => {
 })
 
 // get list booking po
-router.get("/:id/po", (req, res) => {
-	const {id} = req.params
+router.get("/:bookingId/po", async (req, res) => {
+	try {
+		const {bookingId} = req.params
 
-	const queryGetListBookingPo = `
-		SELECT 
-			bp.id AS po_id, 
-			bp.booking_id, 
-			bp.po_number, 
-			bp.created_at, 
-			bp.created_by, 
-			bp.status, 
-			bp.due_date, 
-			bp.total_qty_items, 
-			bp.total_received_items, 
-			u1.email AS created_by_email,
-			i.id AS item_id,
-			i.stock_code,
-			i.part_no,
-			i.item_name,
-			bi.item_qty
-		FROM booking_po bp
-		LEFT JOIN users u1 ON bp.created_by = u1.id
-		LEFT JOIN booking_items bi ON bi.po_number = bp.po_number
-		LEFT JOIN items i ON bi.item_id = i.id
-		WHERE bp.booking_id = ? 
-		AND bp.is_removed = 0
-	`
-
-	connection.query(queryGetListBookingPo, [id], (err, results) => {
-		if (err) {
-			return res
-				.status(500)
-				.json({message: "Error fetching booking po", error: err})
+		// Validate bookingId
+		if (!bookingId) {
+			return res.status(400).json({message: "Booking ID is required"})
 		}
 
-		// Group items by po_number
-		const poMap = {}
+		// Query to fetch booking_po records
+		const queryBookingPo = `
+			SELECT booking_id, po_number, created_at, created_by, status, due_date, total_qty_items, total_received_items
+			FROM booking_po
+			WHERE booking_id = ?
+		`
 
-		results.forEach((row) => {
-			const {
-				po_id,
-				booking_id,
-				po_number,
-				created_at,
-				created_by,
-				status,
-				due_date,
-				total_qty_items,
-				total_received_items,
-				item_id,
-				stock_code,
-				part_no,
-				item_name,
-				item_qty,
-			} = row
+		// Fetch booking_po data
+		const [bookingPoRows] = await connection
+			.promise()
+			.query(queryBookingPo, [bookingId])
 
-			if (!poMap[po_number]) {
-				poMap[po_number] = {
-					id: po_id,
-					booking_id,
-					po_number,
-					created_at,
-					created_by,
-					status,
-					due_date,
-					total_qty_items,
-					total_received_items,
-					items: [],
-				}
+		// Check if no data found
+		if (bookingPoRows.length === 0) {
+			return res
+				.status(404)
+				.json({message: "No PO data found for this booking ID"})
+		}
+
+		// Query to fetch item details based on booking_id and po_number
+		const queryItems = `
+			SELECT 
+				bi.booking_id, 
+				bi.po_number, 
+				i.id, 
+				i.item_name, 
+				bi.item_qty, 
+				i.part_no, 
+				i.stock_code
+			FROM booking_items bi
+			JOIN items i ON bi.item_id = i.id
+			WHERE bi.booking_id = ?
+		`
+
+		// Fetch item data
+		const [itemsRows] = await connection
+			.promise()
+			.query(queryItems, [bookingId])
+
+		// Organize item data by booking_id and po_number
+		const itemsMap = {}
+		itemsRows.forEach((row) => {
+			const key = `${row.booking_id}-${row.po_number}`
+			if (!itemsMap[key]) {
+				itemsMap[key] = []
 			}
-
-			if (item_id) {
-				poMap[po_number].items.push({
-					id: item_id,
-					stock_code,
-					part_no,
-					item_name,
-					item_qty,
-				})
-			}
+			itemsMap[key].push({
+				id: row.id,
+				item_name: row.item_name,
+				item_qty: row.item_qty,
+				part_no: row.part_no,
+				stock_code: row.stock_code,
+			})
 		})
 
-		// Convert poMap to an array
-		const formattedResults = Object.values(poMap)
+		// Merge item details into booking_po response
+		const responseData = bookingPoRows.map((po) => ({
+			...po,
+			items: itemsMap[`${po.booking_id}-${po.po_number}`] || [], // Attach item details or empty array
+		}))
 
-		res.status(200).json(formattedResults)
-	})
+		// Send response
+		res.status(200).json(responseData)
+	} catch (error) {
+		res.status(500).json({message: "Error fetching PO data", error})
+	}
 })
 
 // get detail

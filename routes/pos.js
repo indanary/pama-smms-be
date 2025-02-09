@@ -4,121 +4,70 @@ const connection = require("../db")
 const {format} = require("date-fns")
 
 // update booking po items
-router.put("/items", (req, res) => {
-	const {po_number, item_ids} = req.body
+router.put("/items", async (req, res) => {
+	try {
+		const {booking_id, item_ids, po_number} = req.body
 
-	if (!po_number) {
-		return res.status(400).json({message: "PO Number is required"})
-	}
-
-	if (!item_ids || !Array.isArray(item_ids)) {
-		return res.status(400).json({message: "Item IDs must be an array"})
-	}
-
-	const queryUpdatePoNumber = `
-		UPDATE booking_items
-		SET po_number = ?
-		WHERE item_id = ?
-	`
-
-	const queryGetTotalItemQty = `
-		SELECT SUM(item_qty) AS total_qty
-		FROM booking_items
-		WHERE po_number = ?
-	`
-
-	const queryUpdateBookingPo = `
-		UPDATE booking_po
-		SET total_qty_items = ?
-		WHERE po_number = ?
-	`
-
-	// Use a transaction to ensure all updates are performed atomically
-	connection.beginTransaction((err) => {
-		if (err) {
+		if (
+			!booking_id ||
+			!Array.isArray(item_ids) ||
+			item_ids.length === 0 ||
+			!po_number
+		) {
 			return res
-				.status(500)
-				.json({message: "Transaction error", error: err})
+				.status(400)
+				.json({
+					message:
+						"Booking ID, Item IDs, and PO Number are required",
+				})
 		}
 
-		const updates = item_ids.map((item_id) => {
-			return new Promise((resolve, reject) => {
-				connection.query(
-					queryUpdatePoNumber,
-					[po_number, item_id],
-					(err, result) => {
-						if (err) {
-							return reject(err)
-						}
-						resolve(result)
-					},
-				)
-			})
+		const connectionPromise = connection.promise()
+
+		// Step 1: Update po_number for all matching item_ids
+		const updateQuery = `
+					UPDATE booking_items 
+					SET po_number = ? 
+					WHERE booking_id = ? AND item_id IN (?)
+			`
+		await connectionPromise.query(updateQuery, [
+			po_number,
+			booking_id,
+			item_ids,
+		])
+
+		// Step 2: Get the sum of item_qty for the same booking_id and po_number
+		const sumQuery = `
+					SELECT SUM(item_qty) AS total_qty 
+					FROM booking_items 
+					WHERE booking_id = ? AND po_number = ?
+			`
+		const [sumResult] = await connectionPromise.query(sumQuery, [
+			booking_id,
+			po_number,
+		])
+		const total_qty_items = sumResult[0].total_qty || 0
+
+		// Step 3: Update total_qty_items in booking_po
+		const updatePoQuery = `
+					UPDATE booking_po 
+					SET total_qty_items = ? 
+					WHERE booking_id = ? AND po_number = ?
+			`
+		await connectionPromise.query(updatePoQuery, [
+			total_qty_items,
+			booking_id,
+			po_number,
+		])
+
+		res.status(200).json({
+			message:
+				"Booking PO updated successfully",
+			total_qty_items,
 		})
-
-		Promise.all(updates)
-			.then(() => {
-				// Get the total item_qty for the po_number
-				connection.query(
-					queryGetTotalItemQty,
-					[po_number],
-					(err, results) => {
-						if (err) {
-							return connection.rollback(() => {
-								res.status(500).json({
-									message:
-										"Error fetching total item quantity",
-									error: err,
-								})
-							})
-						}
-
-						const totalQty = results[0].total_qty
-
-						// Update the booking_po with the total quantity
-						connection.query(
-							queryUpdateBookingPo,
-							[totalQty, po_number],
-							(err, result) => {
-								if (err) {
-									return connection.rollback(() => {
-										res.status(500).json({
-											message:
-												"Error updating booking po",
-											error: err,
-										})
-									})
-								}
-
-								connection.commit((err) => {
-									if (err) {
-										return connection.rollback(() => {
-											res.status(500).json({
-												message: "Commit error",
-												error: err,
-											})
-										})
-									}
-									res.status(200).json({
-										message:
-											"PO Items updated successfully",
-										totalQty,
-									})
-								})
-							},
-						)
-					},
-				)
-			})
-			.catch((err) => {
-				connection.rollback(() => {
-					res.status(500).json({
-						message: "Error updating PO Items",
-						error: err,
-					})
-				})
-			})
-	})
+	} catch (error) {
+		res.status(500).json({message: "Error updating data", error})
+	}
 })
 
 // update po
