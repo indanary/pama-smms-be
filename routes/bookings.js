@@ -278,9 +278,7 @@ router.get("/:bookingId/po", async (req, res) => {
 
 		// Check if no data found
 		if (bookingPoRows.length === 0) {
-			return res
-				.status(404)
-				.json({message: "No PO data found for this booking ID"})
+			return res.status(200).json([])
 		}
 
 		// Query to fetch item details based on booking_id and po_number
