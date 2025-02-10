@@ -5,7 +5,7 @@ const connection = require("../db")
 
 // Secret key for JWT
 const JWT_SECRET = process.env.JWT_SECRET
-const JWT_EXPIRATION = "1h" // Access token expiration
+const JWT_EXPIRATION = "7d" // Access token expiration
 const JWT_REFRESH_EXPIRATION = "7d" // Refresh token expiration
 
 // Generate JWT Access Token

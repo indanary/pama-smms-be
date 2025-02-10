@@ -354,6 +354,10 @@ router.get("/:id", (req, res) => {
 				.json({message: "Error fetching bookings", error: err})
 		}
 
+		if (results.length === 0) {
+			return res.status(404).json({message: "Data not found"})
+		}
+
 		const createdAt = new Date(results[0].created_at)
 		const today = new Date()
 		const aging = Math.floor((today - createdAt) / (1000 * 60 * 60 * 24))
@@ -487,6 +491,118 @@ router.put("/:id/po", (req, res) => {
 		res.status(201).json({
 			message: "PO Numbers inserted successfully",
 			insertedCount: results.affectedRows,
+		})
+	})
+})
+
+router.put("/:bookingId/po-upload", (req, res) => {
+	const {bookingId} = req.params
+	const {po_data} = req.body
+
+	if (!po_data || !Array.isArray(po_data)) {
+		return res.status(400).json({message: "Data must be an array"})
+	}
+
+	const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
+	const createdBy = req.user.id
+
+	// Remove possible duplicate entries in `po_data`
+	const uniquePoData = [
+		...new Map(
+			po_data.map((po) => [`${bookingId}-${po.po_number}`, po]),
+		).values(),
+	]
+
+	// Prepare data for bulk insert
+	const values = uniquePoData.map((po) => [
+		bookingId,
+		po.po_number,
+		po.total_qty,
+		createdAt,
+		createdBy,
+	])
+
+	const sqlInsert = `
+			INSERT INTO booking_po (booking_id, po_number, total_qty_items, created_at, created_by) 
+			VALUES ?
+	`
+
+	connection.query(sqlInsert, [values], (error, results) => {
+		if (error) {
+			return res.status(500).json({message: "Internal server error"})
+		}
+
+		const stockCodes = [
+			...new Set(po_data.map((po) => po.item_stock_code)),
+		]
+
+		// Query to get item IDs based on item_stock_code
+		const sqlSelect = `SELECT id, stock_code FROM items WHERE stock_code IN (?)`
+
+		connection.query(sqlSelect, [stockCodes], (err, itemResults) => {
+			if (err) {
+				return res
+					.status(500)
+					.json({message: "Error fetching item IDs"})
+			}
+
+			// Convert itemResults array into a mapping object { item_stock_code: id }
+			const itemMap = Object.fromEntries(
+				itemResults.map((item) => [item.stock_code, item.id]),
+			)
+
+			// Ensure all stock codes have a corresponding item ID
+			if (Object.keys(itemMap).length !== stockCodes.length) {
+				return res.status(500).json({
+					message: "Mismatch between stock codes and item IDs",
+				})
+			}
+
+			// Map po_data to include item_id
+			const updateData = po_data.map((po) => ({
+				booking_id: bookingId,
+				item_id: itemMap[po.item_stock_code],
+				po_number: po.po_number,
+			}))
+
+			// Construct bulk UPDATE query for `booking_items`
+			const updatePromises = updateData.map(
+				({booking_id, item_id, po_number}) => {
+					return new Promise((resolve, reject) => {
+						const sqlUpdate = `
+													UPDATE booking_items 
+													SET po_number = ? 
+													WHERE booking_id = ? AND item_id = ?
+											`
+						connection.query(
+							sqlUpdate,
+							[po_number, booking_id, item_id],
+							(updateErr, updateResults) => {
+								if (updateErr) {
+									return reject(updateErr)
+								}
+								resolve(updateResults)
+							},
+						)
+					})
+				},
+			)
+
+			// Execute all update queries
+			Promise.all(updatePromises)
+				.then(() => {
+					res.status(200).json({
+						message:
+							"PO data inserted and updated successfully",
+						insertedRows: results.affectedRows,
+						updatedRows: updateData.length,
+					})
+				})
+				.catch((updateError) => {
+					res.status(500).json({
+						message: "Error updating PO data",
+					})
+				})
 		})
 	})
 })
