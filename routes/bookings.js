@@ -8,8 +8,8 @@ const cron = require("node-cron")
 
 // get list
 router.get("/", (req, res) => {
-	const {search, page = 1, limit = 10} = req.query
-	const offset = (page - 1) * limit
+	const { search, page = 1, limit = 10 } = req.query;
+	const offset = (page - 1) * limit;
 
 	let queryListBooking = `
 		SELECT b.*,
@@ -21,55 +21,55 @@ router.get("/", (req, res) => {
 		LEFT JOIN users u2 ON b.last_updated_by = u2.id
 		LEFT JOIN booking_items bi ON b.id = bi.booking_id
 		WHERE b.is_removed = 0
-	`
+	`;
 
 	// Add search condition
-	const searchQuery = search ? ` AND (b.id = ? OR bi.po_number LIKE ?)` : ""
-	queryListBooking += searchQuery
-	queryListBooking += ` GROUP BY b.id LIMIT ? OFFSET ?`
+	const searchQuery = search ? ` AND (b.id = ? OR bi.po_number LIKE ?)` : "";
+	queryListBooking += searchQuery;
+	queryListBooking += ` GROUP BY b.id ORDER BY b.created_at DESC LIMIT ? OFFSET ?`;
 
 	const queryTotalCount = `
 		SELECT COUNT(DISTINCT b.id) AS total
 		FROM bookings b
 		LEFT JOIN booking_items bi ON b.id = bi.booking_id
 		WHERE b.is_removed = 0 ${search ? "AND (b.id = ? OR bi.po_number LIKE ?)" : ""}
-	`
+	`;
 
 	// Query parameters
 	const queryParams = search
 		? [search, `%${search}%`, parseInt(limit), parseInt(offset)]
-		: [parseInt(limit), parseInt(offset)]
+		: [parseInt(limit), parseInt(offset)];
 
-	const totalCountParams = search ? [search, `%${search}%`] : []
+	const totalCountParams = search ? [search, `%${search}%`] : [];
 
 	// Get the total count of items
 	connection.query(queryTotalCount, totalCountParams, (err, countResults) => {
 		if (err) {
 			return res
 				.status(500)
-				.json({message: "Error fetching count", error: err})
+				.json({ message: "Error fetching count", error: err });
 		}
 
-		const totalItems = countResults[0].total
-		const totalPages = Math.ceil(totalItems / limit)
+		const totalItems = countResults[0].total;
+		const totalPages = Math.ceil(totalItems / limit);
 
 		// Get the paginated data
 		connection.query(queryListBooking, queryParams, (err, results) => {
 			if (err) {
 				return res
 					.status(500)
-					.json({message: "Error fetching bookings", error: err})
+					.json({ message: "Error fetching bookings", error: err });
 			}
 
 			const formattedResults = results.map((booking) => {
-				const createdAt = new Date(booking.created_at)
-				const today = new Date()
-				let aging = 0
+				const createdAt = new Date(booking.created_at);
+				const today = new Date();
+				let aging = 0;
 
 				if (booking.booking_status !== "closed") {
 					aging = Math.floor(
-						(today - createdAt) / (1000 * 60 * 60 * 24),
-					)
+						(today - createdAt) / (1000 * 60 * 60 * 24)
+					);
 				}
 
 				return {
@@ -92,8 +92,8 @@ router.get("/", (req, res) => {
 						? booking.po_numbers.split(",")
 						: [],
 					aging: aging,
-				}
-			})
+				};
+			});
 
 			res.status(200).json({
 				page: parseInt(page),
@@ -101,10 +101,11 @@ router.get("/", (req, res) => {
 				totalItems,
 				totalPages,
 				data: formattedResults,
-			})
-		})
-	})
-})
+			});
+		});
+	});
+});
+
 
 // Function to fetch booking items and update Google Sheets
 // const fetchAndUpdateBookingItems = async () => {
