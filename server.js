@@ -1,7 +1,7 @@
 const express = require("express")
 const cors = require("cors")
 
-require('./update-sheet')
+require('./routes/update-sheet')
 
 const tokenMiddlewares = require("./middlewares/token")
 
