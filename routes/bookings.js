@@ -190,7 +190,7 @@ router.get("/:bookingId/po", async (req, res) => {
 
 		// Query to fetch booking_po records
 		const queryBookingPo = `
-			SELECT booking_id, po_number, created_at, created_by, status, due_date, total_qty_items, total_received_items
+			SELECT id, booking_id, po_number, created_at, created_by, status, due_date, total_qty_items, total_received_items
 			FROM booking_po
 			WHERE booking_id = ?
 		`
