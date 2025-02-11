@@ -46,8 +46,6 @@ async function updateSheet(data) {
 		const endRow = startRow + numRows - 1
 		const range = `Sheet1!${startColumn}${startRow}:${endColumn}${endRow}`
 
-		console.log(`Updating range: ${range}`)
-
 		// Write to Google Sheets
 		await sheets.spreadsheets.values.update({
 			spreadsheetId,
@@ -55,8 +53,6 @@ async function updateSheet(data) {
 			valueInputOption: "RAW",
 			requestBody: {values: data},
 		})
-
-		console.log("Google Sheet updated successfully!")
 	} catch (error) {
 		console.error("Error updating Google Sheet:", error)
 	}
