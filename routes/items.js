@@ -318,7 +318,7 @@ router.put("/update-received-items", async (req, res) => {
 		if (total_received_items === undefined || total_received_items < 0) {
 			return res
 				.status(400)
-				.json({message: "Invalid total_received_items"})
+				.json({message: "Invalid total received items"})
 		}
 
 		// Update total_received_items in booking_items based on booking_id, po_number, and item_id
@@ -344,11 +344,12 @@ router.put("/update-received-items", async (req, res) => {
 			SELECT SUM(total_received_items) AS total_sum 
 			FROM booking_items 
 			WHERE booking_id = ?
+			AND po_number = ?
 		`
 
 		const [sumResult] = await connection
 			.promise()
-			.query(querySumReceived, [booking_id])
+			.query(querySumReceived, [booking_id, po_number])
 		const totalSum = sumResult[0].total_sum || 0 // Ensure it's at least 0
 
 		// Get total_qty_items from booking_po
@@ -356,11 +357,12 @@ router.put("/update-received-items", async (req, res) => {
 			SELECT total_qty_items 
 			FROM booking_po 
 			WHERE booking_id = ?
+			AND po_number = ?
 		`
 
 		const [poResult] = await connection
 			.promise()
-			.query(queryGetTotalQty, [booking_id])
+			.query(queryGetTotalQty, [booking_id, po_number])
 
 		if (poResult.length === 0) {
 			return res.status(404).json({message: "Booking PO not found"})
@@ -370,7 +372,7 @@ router.put("/update-received-items", async (req, res) => {
 
 		// Determine status
 		let status = "partial"
-		if (totalSum === totalQty) {
+		if (Number(totalSum) === Number(totalQty)) {
 			status = "completed"
 		}
 
@@ -379,11 +381,12 @@ router.put("/update-received-items", async (req, res) => {
 			UPDATE booking_po 
 			SET total_received_items = ?, status = ? 
 			WHERE booking_id = ?
+			AND po_number = ?
 		`
 
 		await connection
 			.promise()
-			.query(queryUpdateBookingPo, [totalSum, status, booking_id])
+			.query(queryUpdateBookingPo, [totalSum, status, booking_id, po_number])
 
 		res.status(200).json({
 			message: "Total received items and status updated successfully",
