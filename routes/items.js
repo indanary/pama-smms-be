@@ -166,7 +166,7 @@ router.get("/:id/booking", (req, res) => {
 
 // add item
 router.post("/", (req, res) => {
-	const {stock_code, part_no, mnemonic, item_class, item_name, uoi} = req.body
+	const {stock_code, part_no, mnemonic, class: item_class, item_name, uoi} = req.body
 
 	if (!stock_code)
 		return res.status(400).json({message: "Stock code are required"})
