@@ -2,7 +2,7 @@ name: Run Booking Items Update
 
 on:
   schedule:
-    - cron: "0 8,13,16,18 * * *"  # Runs at 8 AM, 1 PM, and 4 PM UTC
+    - cron: "0 8,13,16,19 * * *"  # Runs at 8 AM, 1 PM, and 4 PM UTC
   workflow_dispatch:  # Allows manual trigger from GitHub Actions UI
 
 jobs:

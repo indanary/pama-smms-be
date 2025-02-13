@@ -13,7 +13,6 @@ const connection = mysql.createConnection({
   connectionLimit: 10,
   queueLimit: 0,
   connectTimeout: 60000,  // Increase timeout to 60 seconds
-  acquireTimeout: 60000   // Increase acquire timeout
 });
 
 connection.connect((err) => {
