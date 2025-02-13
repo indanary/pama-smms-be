@@ -8,7 +8,12 @@ const connection = mysql.createConnection({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  connectTimeout: 60000,  // Increase timeout to 60 seconds
+  acquireTimeout: 60000   // Increase acquire timeout
 });
 
 connection.connect((err) => {
