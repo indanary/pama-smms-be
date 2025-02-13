@@ -73,15 +73,7 @@ const fetchBookingItemsHandler = async (req, res) => {
 }
 
 // **Schedule job: Runs every day at 8 AM, 1 PM, and 4 PM**
-// cron.schedule("0 8,13,16 * * *", async () => {
-// 	try {
-// 		await fetchAndUpdateBookingItems()
-// 	} catch (error) {
-// 		console.error("Error in scheduled job:", error)
-// 	}
-// })
-
-cron.schedule("20 13 * * *", async () => {
+cron.schedule("0 8,13,16 * * *", async () => {
 	try {
 		await fetchAndUpdateBookingItems()
 	} catch (error) {
