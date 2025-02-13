@@ -52,7 +52,7 @@ const generateBookingNotifications = async () => {
 }
 
 // **API Route to Trigger Notifications Manually**
-router.post("/", async (req, res) => {
+router.post("/generate", async (req, res) => {
 	try {
 		const result = await generateBookingNotifications()
 		res.status(201).json(result)
