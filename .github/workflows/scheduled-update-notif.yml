@@ -1,0 +1,14 @@
+name: Run Notif Updates
+
+on:
+  schedule:
+    - cron: "0 2 * * 6" # Runs every Saturday at 2 AM UTC (9 AM Jakarta Time)
+  workflow_dispatch:  # Allows manual trigger from GitHub Actions UI
+
+jobs:
+  trigger-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send request to API
+        run: |
+          curl -X POST ${{ secrets.UPDATE_NOTIF_API_URL }}

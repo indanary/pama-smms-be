@@ -66,7 +66,7 @@ const fetchAndUpdateBookingItems = async () => {
 }
 
 // API endpoint to trigger the update
-router.post("/fetch-booking-items", async (req, res) => {
+router.post("/", async (req, res) => {
 	try {
 		const result = await fetchAndUpdateBookingItems()
 		res.status(200).json(result)

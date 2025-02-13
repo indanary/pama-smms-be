@@ -9,7 +9,9 @@ const itemRoutes = require("./routes/items")
 const bookingRoutes = require("./routes/bookings")
 const poRoutes = require("./routes/pos")
 const notificationRoutes = require("./routes/notifications")
+
 const updateSheetRoute = require('./routes/update-sheet')
+const updateNotifRoute = require('./routes/update-notif')
 
 const app = express()
 const port = 3001
@@ -34,5 +36,6 @@ app.use("/notifications", tokenMiddlewares, notificationRoutes)
 
 // cron
 app.use("/update-sheet", updateSheetRoute)
+app.use("/update-notif", updateNotifRoute)
 
 app.listen(port, () => {})
