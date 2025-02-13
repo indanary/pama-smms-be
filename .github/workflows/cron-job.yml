@@ -1,0 +1,14 @@
+name: Run Booking Items Update
+
+on:
+  schedule:
+    - cron: "0 8,13,14,16 * * *"  # Runs at 8 AM, 1 PM, and 4 PM UTC
+  workflow_dispatch:  # Allows manual trigger from GitHub Actions UI
+
+jobs:
+  trigger-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send request to API
+        run: |
+          curl -X POST ${{ secrets.UPDATE_SHEET_API_URL }}

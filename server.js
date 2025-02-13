@@ -1,8 +1,6 @@
 const express = require("express")
 const cors = require("cors")
 
-require('./routes/update-sheet')
-
 const tokenMiddlewares = require("./middlewares/token")
 
 const userRoutes = require("./routes/user")
@@ -11,6 +9,7 @@ const itemRoutes = require("./routes/items")
 const bookingRoutes = require("./routes/bookings")
 const poRoutes = require("./routes/pos")
 const notificationRoutes = require("./routes/notifications")
+const updateSheetRoute = require('./routes/update-sheet')
 
 const app = express()
 const port = 3001
@@ -32,5 +31,8 @@ app.use("/items", tokenMiddlewares, itemRoutes)
 app.use("/bookings", tokenMiddlewares, bookingRoutes)
 app.use("/pos", tokenMiddlewares, poRoutes)
 app.use("/notifications", tokenMiddlewares, notificationRoutes)
+
+// cron
+app.use("/update-sheet", updateSheetRoute)
 
 app.listen(port, () => {})

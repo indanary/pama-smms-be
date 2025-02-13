@@ -1,6 +1,7 @@
-const cron = require("node-cron")
-const {updateSheet} = require("../update-sheet")
+const express = require("express")
+const router = express.Router()
 const connection = require("../db")
+const { updateSheet } = require("../update-sheet")
 
 // Function to fetch booking items and update Google Sheets
 const fetchAndUpdateBookingItems = async () => {
@@ -10,7 +11,7 @@ const fetchAndUpdateBookingItems = async () => {
         bi.booking_id,
         COALESCE(b.description, 'No Description') AS description,
         COALESCE(b.cn_no, 'No CN No') AS cn_no,
-				COALESCE(b.is_removed, 0) AS is_removed,
+        COALESCE(b.is_removed, 0) AS is_removed,
         bi.po_number,
         bi.item_qty,
         bi.total_received_items,
@@ -32,7 +33,7 @@ const fetchAndUpdateBookingItems = async () => {
 
 		if (!rows || rows.length === 0) {
 			console.log("No booking items found to update Google Sheets.")
-			return
+			return { message: "No booking items found" }
 		}
 
 		// Format data for Google Sheets
@@ -50,35 +51,28 @@ const fetchAndUpdateBookingItems = async () => {
 			data.uoi,
 			data.item_qty,
 			data.total_received_items,
-			data.is_removed === 0 ? 'false' : 'true'
+			data.is_removed === 0 ? "false" : "true",
 		])
 
 		// Update Google Sheet
 		await updateSheet(formattedData)
 
 		console.log("Booking items updated in Google Sheets successfully!")
+		return { message: "Booking items updated successfully" }
 	} catch (error) {
 		console.error("Error fetching or updating booking items:", error)
+		throw error
 	}
 }
 
-// **Manual API trigger**
-const fetchBookingItemsHandler = async (req, res) => {
+// API endpoint to trigger the update
+router.post("/fetch-booking-items", async (req, res) => {
 	try {
 		const result = await fetchAndUpdateBookingItems()
-		res.status(201).json(result)
+		res.status(200).json(result)
 	} catch (error) {
-		res.status(500).json({message: "Error updating booking items", error})
-	}
-}
-
-// **Schedule job: Runs every day at 8 AM, 1 PM, and 4 PM**
-cron.schedule("0 8,13,16 * * *", async () => {
-	try {
-		await fetchAndUpdateBookingItems()
-	} catch (error) {
-		console.error("Error in scheduled job:", error)
+		res.status(500).json({ message: "Error updating booking items", error: error.message })
 	}
 })
 
-module.exports = {fetchBookingItemsHandler}
+module.exports = router
