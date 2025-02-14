@@ -58,7 +58,7 @@ const fetchAndUpdateBookingItems = async () => {
 		await updateSheet(formattedData)
 
 		console.log("Booking items updated in Google Sheets successfully!")
-		return {message: "Booking items updated successfully"}
+		return {message: "Booking spreadsheet updated successfully"}
 	} catch (error) {
 		console.error("Error fetching or updating booking items:", error)
 		throw error

@@ -31,7 +31,7 @@ const loginUser = async (req, res) => {
 		if (err) {
 			res.status(500).send(err)
 		}
-		if (results.length === 0) {
+		if (results && results.length === 0) {
 			return res.status(400).json({message: "Invalid credentials"})
 		}
 
