@@ -12,6 +12,7 @@ const fetchAndUpdateBookingItems = async () => {
 					COALESCE(b.description, 'No Description') AS description,
 					COALESCE(b.cn_no, 'No CN No') AS cn_no,
 					COALESCE(b.is_removed, 0) AS is_removed,
+					COALESCE(b.remove_reason, '') AS remove_reason,
 					bi.po_number,
 					bi.item_qty,
 					bi.total_received_items,
@@ -52,6 +53,7 @@ const fetchAndUpdateBookingItems = async () => {
 			data.item_qty,
 			data.total_received_items,
 			data.is_removed === 0 ? "false" : "true",
+			data.remove_reason
 		])
 
 		// Update Google Sheet
