@@ -90,6 +90,7 @@ router.get("/", (req, res) => {
 						? booking.po_numbers.split(",")
 						: [],
 					aging: aging,
+					requested_by: booking.requested_by
 				};
 			});
 
@@ -139,6 +140,7 @@ router.get("/export", (req, res) => {
 			return {
 				ID: "BOOKSM" + booking.id,
 				Description: booking.description,
+				"Requested By": booking.requested_by,
 				"CN No": booking.cn_no,
 				"Approved Status": booking.approved_status ? true : false,
 				"Booking Status": booking.booking_status,
@@ -306,6 +308,7 @@ router.get("/:id", (req, res) => {
 				? results[0].po_numbers.split(",")
 				: [],
 			aging: aging,
+			requested_by: results[0].requested_by,
 
 			created_by_email: undefined,
 			last_updated_by_email: undefined,
@@ -317,7 +320,7 @@ router.get("/:id", (req, res) => {
 
 // add booking
 router.post("/", (req, res) => {
-	const {description, cn_no, items} = req.body
+	const {description, cn_no, items, requested_by} = req.body
 
 	if (!description)
 		return res.status(400).json({message: "Description are required"})
@@ -331,11 +334,11 @@ router.post("/", (req, res) => {
 	const createdBy = req.user.id
 
 	const queryAddBooking =
-		"INSERT INTO bookings (description, cn_no, created_at, created_by) VALUES (?, ?, ?, ?)"
+		"INSERT INTO bookings (description, cn_no, created_at, created_by, requested_by) VALUES (?, ?, ?, ?, ?)"
 
 	connection.query(
 		queryAddBooking,
-		[description, cn_no, createdAt, createdBy],
+		[description, cn_no, createdAt, createdBy, requested_by],
 		(err, results) => {
 			if (err) {
 				res.status(500).send(err)

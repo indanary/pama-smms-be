@@ -10,6 +10,7 @@ const fetchAndUpdateBookingItems = async () => {
       SELECT
 					bi.booking_id,
 					COALESCE(b.description, 'No Description') AS description,
+					COALESCE(b.requested_by, '') AS requested_by,
 					COALESCE(b.cn_no, 'No CN No') AS cn_no,
 					COALESCE(b.is_removed, 0) AS is_removed,
 					COALESCE(b.remove_reason, '') AS remove_reason,
@@ -23,11 +24,13 @@ const fetchAndUpdateBookingItems = async () => {
 					COALESCE(i.class, 'Unknown') AS class,
 					COALESCE(i.item_name, 'Unknown') AS item_name,
 					COALESCE(i.uoi, 'Unknown') AS uoi,
-					COALESCE(bp.due_date, '') AS due_date
+					COALESCE(bp.due_date, '') AS due_date,
+					u1.email AS created_by_email
 			FROM booking_items bi
 			LEFT JOIN bookings b ON bi.booking_id = b.id
 			LEFT JOIN items i ON bi.item_id = i.id
-			LEFT JOIN booking_po bp ON bi.po_number = bp.po_number AND bi.booking_id = bp.booking_id;
+			LEFT JOIN booking_po bp ON bi.po_number = bp.po_number AND bi.booking_id = bp.booking_id
+			LEFT JOIN users u1 ON b.created_by = u1.id;
     `
 
 		const [rows] = await connection.promise().query(query)
@@ -41,6 +44,8 @@ const fetchAndUpdateBookingItems = async () => {
 		const formattedData = rows.map((data) => [
 			`BOOKSM${data.booking_id}`,
 			data.description,
+			data.created_by_email,
+			data.requested_by,
 			data.cn_no,
 			data.po_number === null ? "" : data.po_number,
 			data.due_date,
