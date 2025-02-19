@@ -166,7 +166,14 @@ router.get("/:id/booking", (req, res) => {
 
 // add item
 router.post("/", (req, res) => {
-	const {stock_code, part_no, mnemonic, class: item_class, item_name, uoi} = req.body
+	const {
+		stock_code,
+		part_no,
+		mnemonic,
+		class: item_class,
+		item_name,
+		uoi,
+	} = req.body
 
 	if (!stock_code)
 		return res.status(400).json({message: "Stock code are required"})
@@ -308,6 +315,8 @@ router.post("/upload", async (req, res) => {
 router.put("/update-received-items", async (req, res) => {
 	try {
 		const {booking_id, po_number, item_id, total_received_items} = req.body
+		const lastUpdatedAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
+		const lastUpdatedBy = req.user.id
 
 		// Validate input
 		if (!booking_id || !item_id) {
@@ -386,7 +395,26 @@ router.put("/update-received-items", async (req, res) => {
 
 		await connection
 			.promise()
-			.query(queryUpdateBookingPo, [totalSum, status, booking_id, po_number])
+			.query(queryUpdateBookingPo, [
+				totalSum,
+				status,
+				booking_id,
+				po_number,
+			])
+
+		const queryUpdateBooking = `
+			UPDATE bookings 
+			SET last_updated_at = ?, last_updated_by = ? 
+			WHERE id = ?
+		`
+
+		await connection
+			.promise()
+			.query(queryUpdateBooking, [
+				lastUpdatedAt,
+				lastUpdatedBy,
+				booking_id,
+			])
 
 		res.status(200).json({
 			message: "Total received items and status updated successfully",

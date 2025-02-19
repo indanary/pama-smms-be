@@ -6,8 +6,8 @@ const XLSX = require("xlsx")
 
 // get list
 router.get("/", (req, res) => {
-	const { search, page = 1, limit = 10 } = req.query;
-	const offset = (page - 1) * limit;
+	const {search, page = 1, limit = 10} = req.query
+	const offset = (page - 1) * limit
 
 	let queryListBooking = `
 		SELECT b.*,
@@ -19,55 +19,55 @@ router.get("/", (req, res) => {
 		LEFT JOIN users u2 ON b.last_updated_by = u2.id
 		LEFT JOIN booking_items bi ON b.id = bi.booking_id
 		WHERE b.is_removed = 0
-	`;
+	`
 
 	// Add search condition
-	const searchQuery = search ? ` AND (b.id = ? OR bi.po_number LIKE ?)` : "";
-	queryListBooking += searchQuery;
-	queryListBooking += ` GROUP BY b.id ORDER BY b.created_at DESC LIMIT ? OFFSET ?`;
+	const searchQuery = search ? ` AND (b.id = ? OR bi.po_number LIKE ?)` : ""
+	queryListBooking += searchQuery
+	queryListBooking += ` GROUP BY b.id ORDER BY b.created_at DESC LIMIT ? OFFSET ?`
 
 	const queryTotalCount = `
 		SELECT COUNT(DISTINCT b.id) AS total
 		FROM bookings b
 		LEFT JOIN booking_items bi ON b.id = bi.booking_id
 		WHERE b.is_removed = 0 ${search ? "AND (b.id = ? OR bi.po_number LIKE ?)" : ""}
-	`;
+	`
 
 	// Query parameters
 	const queryParams = search
 		? [search, `%${search}%`, parseInt(limit), parseInt(offset)]
-		: [parseInt(limit), parseInt(offset)];
+		: [parseInt(limit), parseInt(offset)]
 
-	const totalCountParams = search ? [search, `%${search}%`] : [];
+	const totalCountParams = search ? [search, `%${search}%`] : []
 
 	// Get the total count of items
 	connection.query(queryTotalCount, totalCountParams, (err, countResults) => {
 		if (err) {
 			return res
 				.status(500)
-				.json({ message: "Error fetching count", error: err });
+				.json({message: "Error fetching count", error: err})
 		}
 
-		const totalItems = countResults[0].total;
-		const totalPages = Math.ceil(totalItems / limit);
+		const totalItems = countResults[0].total
+		const totalPages = Math.ceil(totalItems / limit)
 
 		// Get the paginated data
 		connection.query(queryListBooking, queryParams, (err, results) => {
 			if (err) {
 				return res
 					.status(500)
-					.json({ message: "Error fetching bookings", error: err });
+					.json({message: "Error fetching bookings", error: err})
 			}
 
 			const formattedResults = results.map((booking) => {
-				const createdAt = new Date(booking.created_at);
-				const today = new Date();
-				let aging = 0;
+				const createdAt = new Date(booking.created_at)
+				const today = new Date()
+				let aging = 0
 
 				if (booking.booking_status !== "closed") {
 					aging = Math.floor(
-						(today - createdAt) / (1000 * 60 * 60 * 24)
-					);
+						(today - createdAt) / (1000 * 60 * 60 * 24),
+					)
 				}
 
 				return {
@@ -90,9 +90,9 @@ router.get("/", (req, res) => {
 						? booking.po_numbers.split(",")
 						: [],
 					aging: aging,
-					requested_by: booking.requested_by
-				};
-			});
+					requested_by: booking.requested_by,
+				}
+			})
 
 			res.status(200).json({
 				page: parseInt(page),
@@ -100,10 +100,10 @@ router.get("/", (req, res) => {
 				totalItems,
 				totalPages,
 				data: formattedResults,
-			});
-		});
-	});
-});
+			})
+		})
+	})
+})
 
 // export booking
 router.get("/export", (req, res) => {
@@ -415,9 +415,25 @@ router.put("/:id/po", (req, res) => {
 				.json({message: "Error inserting PO Numbers", error: err})
 		}
 
-		res.status(201).json({
-			message: "PO Numbers inserted successfully",
-			insertedCount: results.affectedRows,
+		const queryUpdateBooking = `
+			UPDATE bookings 
+			SET last_updated_at = ?, last_updated_by = ? 
+			WHERE id = ?
+		`
+		const updateValues = [createdAt, createdBy, Number(id)]
+
+		connection.query(queryUpdateBooking, updateValues, (updateErr) => {
+			if (updateErr) {
+				return res.status(500).json({
+					message: "Error updating booking record",
+					error: updateErr,
+				})
+			}
+
+			res.status(201).json({
+				message: "PO Numbers inserted successfully, booking updated",
+				insertedCount: results.affectedRows,
+			})
 		})
 	})
 })
@@ -459,9 +475,7 @@ router.put("/:bookingId/po-upload", (req, res) => {
 			return res.status(500).json({message: "Internal server error"})
 		}
 
-		const stockCodes = [
-			...new Set(po_data.map((po) => po.item_stock_code)),
-		]
+		const stockCodes = [...new Set(po_data.map((po) => po.item_stock_code))]
 
 		// Query to get item IDs based on item_stock_code
 		const sqlSelect = `SELECT id, stock_code FROM items WHERE stock_code IN (?)`
@@ -518,12 +532,31 @@ router.put("/:bookingId/po-upload", (req, res) => {
 			// Execute all update queries
 			Promise.all(updatePromises)
 				.then(() => {
-					res.status(200).json({
-						message:
-							"PO data inserted and updated successfully",
-						insertedRows: results.affectedRows,
-						updatedRows: updateData.length,
-					})
+					const queryUpdateBooking = `
+						UPDATE bookings 
+						SET last_updated_at = ?, last_updated_by = ? 
+						WHERE id = ?
+					`
+					const updateValues = [createdAt, createdBy, Number(bookingId)]
+
+					connection.query(
+						queryUpdateBooking,
+						updateValues,
+						(updateErr) => {
+							if (updateErr) {
+								return res.status(500).json({
+									message: "Error updating booking record",
+									error: updateErr,
+								})
+							}
+
+							res.status(201).json({
+								message:
+									"PO data inserted and updated successfully",
+								insertedCount: results.affectedRows,
+							})
+						},
+					)
 				})
 				.catch((updateError) => {
 					res.status(500).json({
