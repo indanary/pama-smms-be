@@ -175,38 +175,44 @@ router.post("/", (req, res) => {
 		uoi,
 	} = req.body
 
-	if (!stock_code)
-		return res.status(400).json({message: "Stock code are required"})
+	// if (!stock_code)
+	// 	return res.status(400).json({ message: "Stock code is required" })
 
-	if (!part_no) return res.status(400).json({message: "Part no are required"})
+	if (!part_no) return res.status(400).json({ message: "Part no is required" })
 
 	if (!mnemonic)
-		return res.status(400).json({message: "Mnemonic are required"})
+		return res.status(400).json({ message: "Mnemonic is required" })
 
-	if (!item_class)
-		return res.status(400).json({message: "Item class are required"})
+	// if (!item_class)
+	// 	return res.status(400).json({ message: "Item class is required" })
 
 	if (!item_name)
-		return res.status(400).json({message: "Item name are required"})
+		return res.status(400).json({ message: "Item name is required" })
 
-	if (!uoi) return res.status(400).json({message: "UOI name are required"})
+	if (!uoi) return res.status(400).json({ message: "UOI is required" })
 
 	const checkStockCode = "SELECT * FROM items WHERE stock_code = ?"
-	connection.query(checkStockCode, [stock_code], async (err, results) => {
+	connection.query(checkStockCode, [stock_code], (err, results) => {
+		if (err) {
+			return res.status(500).json({ message: "Database error", error: err })
+		}
+
 		if (results.length > 0) {
 			return res.status(409).json({
-				message: "Item Part with the same stock code already exists",
+				message: "Item with the same stock code already exists",
 			})
 		}
 
 		const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
 		const createdBy = req.user.id
 
-		const query =
-			"INSERT INTO items (stock_code, part_no, mnemonic, class, item_name, uoi, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+		const insertQuery = `
+			INSERT INTO items (stock_code, part_no, mnemonic, class, item_name, uoi, created_at, created_by)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`
 
 		connection.query(
-			query,
+			insertQuery,
 			[
 				stock_code,
 				part_no,
@@ -221,13 +227,94 @@ router.post("/", (req, res) => {
 				if (err) {
 					return res
 						.status(500)
-						.json({message: "Error creating item", error: err})
+						.json({ message: "Error creating item", error: err })
 				}
-				res.status(201).json({
-					message: "Item created successfully",
+
+				const itemId = result.insertId
+
+				const selectQuery = `
+					SELECT items.id, items.stock_code, items.part_no, items.mnemonic, items.class, 
+					       items.item_name, items.uoi, items.created_at, users.email AS created_by_email
+					FROM items
+					LEFT JOIN users ON items.created_by = users.id
+					WHERE items.id = ?
+				`
+
+				connection.query(selectQuery, [itemId], (err, itemResults) => {
+					if (err) {
+						return res
+							.status(500)
+							.json({ message: "Error retrieving item", error: err })
+					}
+
+					if (itemResults.length === 0) {
+						return res
+							.status(500)
+							.json({ message: "Item created but not found" })
+					}
+
+					const item = itemResults[0]
+
+					res.status(201).json({
+						message: "Item created successfully",
+						item: {
+							id: item.id,
+							stock_code: item.stock_code,
+							part_no: item.part_no,
+							mnemonic: item.mnemonic,
+							class: item.class,
+							item_name: item.item_name,
+							uoi: item.uoi,
+							created_at: item.created_at,
+							created_by: item.created_by_email,
+						},
+					})
 				})
-			},
+			}
 		)
+	})
+})
+
+// update item
+router.put("/:id", (req, res) => {
+	const { stock_code, class: item_class } = req.body
+	const { id } = req.params
+
+	// Skip if there's nothing to update
+	if (!stock_code && !item_class) {
+		return res.status(400).json({ message: "No fields to update" })
+	}
+
+	let updateFields = []
+	let queryParams = []
+
+	if (stock_code) {
+		updateFields.push("stock_code = ?")
+		queryParams.push(stock_code)
+	}
+
+	if (item_class) {
+		updateFields.push("class = ?")
+		queryParams.push(item_class)
+	}
+
+	const updateQuery = `UPDATE items SET ${updateFields.join(", ")} WHERE id = ?`
+	queryParams.push(id)
+
+	connection.query(updateQuery, queryParams, (err, result) => {
+		if (err) {
+			// Handle duplicate stock_code error (assuming MySQL error code 1062)
+			if (err.code === "ER_DUP_ENTRY") {
+				return res.status(409).json({ message: "Stock code already exists" })
+			}
+			return res.status(500).json({ message: "Error updating item", error: err })
+		}
+
+		if (result.affectedRows === 0) {
+			return res.status(404).json({ message: "Item not found" })
+		}
+
+		res.status(200).json({ message: "Item updated successfully" })
 	})
 })
 
