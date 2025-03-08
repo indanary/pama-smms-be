@@ -6,69 +6,72 @@ const XLSX = require("xlsx")
 
 // get list
 router.get("/", (req, res) => {
-	const {search, page = 1, limit = 10} = req.query
-	const offset = (page - 1) * limit
+	const { search, page = 1, limit = 10 } = req.query;
+	const offset = (page - 1) * limit;
 
 	let queryListBooking = `
 		SELECT b.*,
 			u1.email AS created_by_email,
 			u2.email AS last_updated_by_email,
-			GROUP_CONCAT(bi.po_number) AS po_numbers
+			GROUP_CONCAT(DISTINCT bi.po_number) AS po_numbers,
+			COALESCE(SUM(bp.total_qty_items), 0) AS total_qty_items,
+			COALESCE(SUM(bp.total_received_items), 0) AS total_received_items
 		FROM bookings b
 		LEFT JOIN users u1 ON b.created_by = u1.id
 		LEFT JOIN users u2 ON b.last_updated_by = u2.id
 		LEFT JOIN booking_items bi ON b.id = bi.booking_id
+		LEFT JOIN booking_po bp ON b.id = bp.booking_id
 		WHERE b.is_removed = 0
-	`
+	`;
 
 	// Add search condition
-	const searchQuery = search ? ` AND (b.id = ? OR bi.cn_no LIKE ?)` : ""
-	queryListBooking += searchQuery
-	queryListBooking += ` GROUP BY b.id ORDER BY b.created_at DESC LIMIT ? OFFSET ?`
+	const searchQuery = search ? ` AND (b.id = ? OR bi.cn_no LIKE ?)` : "";
+	queryListBooking += searchQuery;
+	queryListBooking += ` GROUP BY b.id ORDER BY b.created_at DESC LIMIT ? OFFSET ?`;
 
 	const queryTotalCount = `
 		SELECT COUNT(DISTINCT b.id) AS total
 		FROM bookings b
 		LEFT JOIN booking_items bi ON b.id = bi.booking_id
 		WHERE b.is_removed = 0 ${search ? "AND (b.id = ? OR bi.cn_no LIKE ?)" : ""}
-	`
+	`;
 
 	// Query parameters
 	const queryParams = search
 		? [search, `%${search}%`, parseInt(limit), parseInt(offset)]
-		: [parseInt(limit), parseInt(offset)]
+		: [parseInt(limit), parseInt(offset)];
 
-	const totalCountParams = search ? [search, `%${search}%`] : []
+	const totalCountParams = search ? [search, `%${search}%`] : [];
 
 	// Get the total count of items
 	connection.query(queryTotalCount, totalCountParams, (err, countResults) => {
 		if (err) {
-			return res
-				.status(500)
-				.json({message: "Error fetching count", error: err})
+			return res.status(500).json({ message: "Error fetching count", error: err });
 		}
 
-		const totalItems = countResults[0].total
-		const totalPages = Math.ceil(totalItems / limit)
+		const totalItems = countResults[0].total;
+		const totalPages = Math.ceil(totalItems / limit);
 
 		// Get the paginated data
 		connection.query(queryListBooking, queryParams, (err, results) => {
 			if (err) {
-				return res
-					.status(500)
-					.json({message: "Error fetching bookings", error: err})
+				return res.status(500).json({ message: "Error fetching bookings", error: err });
 			}
 
 			const formattedResults = results.map((booking) => {
-				const createdAt = new Date(booking.created_at)
-				const today = new Date()
-				let aging = 0
+				const createdAt = new Date(booking.created_at);
+				const today = new Date();
+				let aging = 0;
 
 				if (booking.booking_status !== "closed") {
-					aging = Math.floor(
-						(today - createdAt) / (1000 * 60 * 60 * 24),
-					)
+					aging = Math.floor((today - createdAt) / (1000 * 60 * 60 * 24));
 				}
+
+				// Calculate percentage
+				const receivedPercentage =
+					booking.total_qty_items > 0
+						? ((booking.total_received_items / booking.total_qty_items) * 100).toFixed(2)
+						: 0;
 
 				return {
 					id: booking.id,
@@ -86,13 +89,14 @@ router.get("/", (req, res) => {
 					cn_no: booking.cn_no,
 					is_removed: booking.is_removed,
 					remove_reason: booking.remove_reason,
-					po_numbers: booking.po_numbers
-						? booking.po_numbers.split(",")
-						: [],
+					po_numbers: booking.po_numbers ? booking.po_numbers.split(",") : [],
+					total_qty_items: booking.total_qty_items,
+					total_received_items: booking.total_received_items,
+					received_percentage: `${receivedPercentage}%`,
 					aging: aging,
 					requested_by: booking.requested_by,
-				}
-			})
+				};
+			});
 
 			res.status(200).json({
 				page: parseInt(page),
@@ -100,10 +104,10 @@ router.get("/", (req, res) => {
 				totalItems,
 				totalPages,
 				data: formattedResults,
-			})
-		})
-	})
-})
+			});
+		});
+	});
+});
 
 // export booking
 router.get("/export", (req, res) => {
@@ -258,35 +262,42 @@ router.get("/:bookingId/po", async (req, res) => {
 
 // get detail
 router.get("/:id", (req, res) => {
-	const bookingId = req.params.id
+	const bookingId = req.params.id;
 
 	let queryListBooking = `
 		SELECT b.*,
 			u1.email AS created_by_email,
 			u2.email AS last_updated_by_email,
-			GROUP_CONCAT(bi.po_number) AS po_numbers
+			GROUP_CONCAT(DISTINCT bi.po_number) AS po_numbers,
+			COALESCE(SUM(bp.total_qty_items), 0) AS total_qty_items,
+			COALESCE(SUM(bp.total_received_items), 0) AS total_received_items
 		FROM bookings b
 		LEFT JOIN users u1 ON b.created_by = u1.id
 		LEFT JOIN users u2 ON b.last_updated_by = u2.id
 		LEFT JOIN booking_items bi ON b.id = bi.booking_id
+		LEFT JOIN booking_po bp ON b.id = bp.booking_id
 		WHERE b.id = ?
 		GROUP BY b.id
-	`
+	`;
 
 	connection.query(queryListBooking, [bookingId], (err, results) => {
 		if (err) {
-			return res
-				.status(500)
-				.json({message: "Error fetching bookings", error: err})
+			return res.status(500).json({ message: "Error fetching bookings", error: err });
 		}
 
 		if (results.length === 0) {
-			return res.status(404).json({message: "Data not found"})
+			return res.status(404).json({ message: "Data not found" });
 		}
 
-		const createdAt = new Date(results[0].created_at)
-		const today = new Date()
-		const aging = Math.floor((today - createdAt) / (1000 * 60 * 60 * 24))
+		const createdAt = new Date(results[0].created_at);
+		const today = new Date();
+		const aging = Math.floor((today - createdAt) / (1000 * 60 * 60 * 24));
+
+		// Calculate received percentage
+		const receivedPercentage =
+			results[0].total_qty_items > 0
+				? ((results[0].total_received_items / results[0].total_qty_items) * 100).toFixed(2)
+				: 0;
 
 		const formattedResults = {
 			id: results[0].id,
@@ -304,19 +315,18 @@ router.get("/:id", (req, res) => {
 			cn_no: results[0].cn_no,
 			is_removed: results[0].is_removed,
 			remove_reason: results[0].remove_reason,
-			po_numbers: results[0].po_numbers
-				? results[0].po_numbers.split(",")
-				: [],
+			po_numbers: results[0].po_numbers ? results[0].po_numbers.split(",") : [],
 			aging: aging,
 			requested_by: results[0].requested_by,
+			total_qty_items: results[0].total_qty_items,
+			total_received_items: results[0].total_received_items,
+			received_percentage: `${receivedPercentage}%`,
+		};
 
-			created_by_email: undefined,
-			last_updated_by_email: undefined,
-		}
+		res.status(200).json(formattedResults);
+	});
+});
 
-		res.status(200).json(formattedResults)
-	})
-})
 
 // add booking
 router.post("/", (req, res) => {

@@ -17,7 +17,8 @@ const fetchAndUpdateBookingItems = async () => {
 					COALESCE(b.wr_no, '') AS wr_no,
 					bi.po_number,
 					bi.item_qty,
-					bi.total_received_items,
+					COALESCE(bp.total_qty_items, 0) AS total_qty_items,
+					COALESCE(bp.total_received_items, 0) AS total_received_items,
 					COALESCE(i.id, 0) AS item_id,
 					COALESCE(i.stock_code, 'Unknown') AS stock_code,
 					COALESCE(i.part_no, 'Unknown') AS part_no,
@@ -42,26 +43,34 @@ const fetchAndUpdateBookingItems = async () => {
 		}
 
 		// Format data for Google Sheets
-		const formattedData = rows.map((data) => [
-			`BOOKSM${data.booking_id}`,
-			data.description,
-			data.created_by_email,
-			data.requested_by,
-			data.cn_no,
-			data.po_number === null ? "" : data.po_number,
-			data.due_date,
-			data.stock_code,
-			data.part_no,
-			data.mnemonic,
-			data.class,
-			data.item_name,
-			data.uoi,
-			data.item_qty,
-			data.total_received_items,
-			data.wr_no,
-			data.is_removed === 0 ? "false" : "true",
-			data.remove_reason
-		])
+		const formattedData = rows.map((data) => {
+			const receivedPercentage =
+				data.total_qty_items > 0
+					? ((data.total_received_items / data.total_qty_items) * 100).toFixed(2)
+					: 0
+
+			return [
+				`BOOKSM${data.booking_id}`,
+				data.description,
+				data.created_by_email,
+				data.requested_by,
+				data.cn_no,
+				data.po_number === null ? "" : data.po_number,
+				data.due_date,
+				data.stock_code,
+				data.part_no,
+				data.mnemonic,
+				data.class,
+				data.item_name,
+				data.uoi,
+				data.item_qty,
+				data.total_received_items,
+				`${receivedPercentage}%`, // Add received percentage from booking_po
+				data.wr_no,
+				data.is_removed === 0 ? "false" : "true",
+				data.remove_reason
+			]
+		})
 
 		// Update Google Sheet
 		await updateSheet(formattedData)
@@ -73,6 +82,7 @@ const fetchAndUpdateBookingItems = async () => {
 		throw error
 	}
 }
+
 
 // API endpoint to trigger the update
 router.post("/generate", async (req, res) => {
