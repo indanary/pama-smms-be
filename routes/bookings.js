@@ -22,7 +22,7 @@ router.get("/", (req, res) => {
 	`
 
 	// Add search condition
-	const searchQuery = search ? ` AND (b.id = ? OR bi.po_number LIKE ?)` : ""
+	const searchQuery = search ? ` AND (b.id = ? OR bi.cn_no LIKE ?)` : ""
 	queryListBooking += searchQuery
 	queryListBooking += ` GROUP BY b.id ORDER BY b.created_at DESC LIMIT ? OFFSET ?`
 
@@ -30,7 +30,7 @@ router.get("/", (req, res) => {
 		SELECT COUNT(DISTINCT b.id) AS total
 		FROM bookings b
 		LEFT JOIN booking_items bi ON b.id = bi.booking_id
-		WHERE b.is_removed = 0 ${search ? "AND (b.id = ? OR bi.po_number LIKE ?)" : ""}
+		WHERE b.is_removed = 0 ${search ? "AND (b.id = ? OR bi.cn_no LIKE ?)" : ""}
 	`
 
 	// Query parameters
