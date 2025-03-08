@@ -6,8 +6,8 @@ const XLSX = require("xlsx")
 
 // get list
 router.get("/", (req, res) => {
-	const { search, page = 1, limit = 10 } = req.query;
-	const offset = (page - 1) * limit;
+	const {search, page = 1, limit = 10} = req.query
+	const offset = (page - 1) * limit
 
 	let queryListBooking = `
 		SELECT b.*,
@@ -22,56 +22,78 @@ router.get("/", (req, res) => {
 		LEFT JOIN booking_items bi ON b.id = bi.booking_id
 		LEFT JOIN booking_po bp ON b.id = bp.booking_id
 		WHERE b.is_removed = 0
-	`;
+	`
 
 	// Add search condition
-	const searchQuery = search ? ` AND (b.id = ? OR bi.cn_no LIKE ?)` : "";
-	queryListBooking += searchQuery;
-	queryListBooking += ` GROUP BY b.id ORDER BY b.created_at DESC LIMIT ? OFFSET ?`;
+	const searchQuery = search ? ` AND (b.id = ? OR bi.cn_no LIKE ?)` : ""
+	queryListBooking += searchQuery
+	queryListBooking += ` GROUP BY b.id ORDER BY b.created_at DESC LIMIT ? OFFSET ?`
 
 	const queryTotalCount = `
 		SELECT COUNT(DISTINCT b.id) AS total
 		FROM bookings b
 		LEFT JOIN booking_items bi ON b.id = bi.booking_id
 		WHERE b.is_removed = 0 ${search ? "AND (b.id = ? OR bi.cn_no LIKE ?)" : ""}
-	`;
+	`
 
 	// Query parameters
 	const queryParams = search
 		? [search, `%${search}%`, parseInt(limit), parseInt(offset)]
-		: [parseInt(limit), parseInt(offset)];
+		: [parseInt(limit), parseInt(offset)]
 
-	const totalCountParams = search ? [search, `%${search}%`] : [];
+	const totalCountParams = search ? [search, `%${search}%`] : []
 
 	// Get the total count of items
 	connection.query(queryTotalCount, totalCountParams, (err, countResults) => {
 		if (err) {
-			return res.status(500).json({ message: "Error fetching count", error: err });
+			return res
+				.status(500)
+				.json({message: "Error fetching count", error: err})
 		}
 
-		const totalItems = countResults[0].total;
-		const totalPages = Math.ceil(totalItems / limit);
+		const totalItems = countResults[0].total
+		const totalPages = Math.ceil(totalItems / limit)
 
 		// Get the paginated data
 		connection.query(queryListBooking, queryParams, (err, results) => {
 			if (err) {
-				return res.status(500).json({ message: "Error fetching bookings", error: err });
+				return res
+					.status(500)
+					.json({message: "Error fetching bookings", error: err})
 			}
 
 			const formattedResults = results.map((booking) => {
-				const createdAt = new Date(booking.created_at);
-				const today = new Date();
-				let aging = 0;
+				const createdAt = new Date(booking.created_at)
+				const today = new Date()
 
+				// Convert both dates to UTC (ignoring time zone differences)
+				const createdAtUTC = Date.UTC(
+					createdAt.getFullYear(),
+					createdAt.getMonth(),
+					createdAt.getDate(),
+				)
+				const todayUTC = Date.UTC(
+					today.getFullYear(),
+					today.getMonth(),
+					today.getDate(),
+				)
+
+				let aging = 0
 				if (booking.booking_status !== "closed") {
-					aging = Math.floor((today - createdAt) / (1000 * 60 * 60 * 24));
+					aging = Math.floor(
+						(todayUTC - createdAtUTC) / (1000 * 60 * 60 * 24),
+					)
 				}
 
 				// Calculate percentage
 				const receivedPercentage =
 					booking.total_qty_items > 0
-						? ((booking.total_received_items / booking.total_qty_items) * 100).toFixed(2)
-						: 0;
+						? (
+								(booking.total_received_items /
+									booking.total_qty_items) *
+								100
+						  ).toFixed(2)
+						: 0
 
 				return {
 					id: booking.id,
@@ -89,14 +111,16 @@ router.get("/", (req, res) => {
 					cn_no: booking.cn_no,
 					is_removed: booking.is_removed,
 					remove_reason: booking.remove_reason,
-					po_numbers: booking.po_numbers ? booking.po_numbers.split(",") : [],
+					po_numbers: booking.po_numbers
+						? booking.po_numbers.split(",")
+						: [],
 					total_qty_items: booking.total_qty_items,
 					total_received_items: booking.total_received_items,
 					received_percentage: `${receivedPercentage}%`,
 					aging: aging,
 					requested_by: booking.requested_by,
-				};
-			});
+				}
+			})
 
 			res.status(200).json({
 				page: parseInt(page),
@@ -104,10 +128,10 @@ router.get("/", (req, res) => {
 				totalItems,
 				totalPages,
 				data: formattedResults,
-			});
-		});
-	});
-});
+			})
+		})
+	})
+})
 
 // export booking
 router.get("/export", (req, res) => {
@@ -282,44 +306,64 @@ router.get("/:id", (req, res) => {
 
 	connection.query(queryListBooking, [bookingId], (err, results) => {
 		if (err) {
-			return res.status(500).json({ message: "Error fetching bookings", error: err });
+			return res
+				.status(500)
+				.json({ message: "Error fetching bookings", error: err });
 		}
 
 		if (results.length === 0) {
 			return res.status(404).json({ message: "Data not found" });
 		}
 
-		const createdAt = new Date(results[0].created_at);
+		const booking = results[0];
+
+		// Fix aging calculation (use UTC dates)
+		const createdAt = new Date(booking.created_at);
 		const today = new Date();
-		const aging = Math.floor((today - createdAt) / (1000 * 60 * 60 * 24));
+
+		const createdAtUTC = Date.UTC(
+			createdAt.getFullYear(),
+			createdAt.getMonth(),
+			createdAt.getDate()
+		);
+		const todayUTC = Date.UTC(
+			today.getFullYear(),
+			today.getMonth(),
+			today.getDate()
+		);
+
+		let aging = 0;
+		if (booking.booking_status !== "closed") {
+			aging = Math.floor((todayUTC - createdAtUTC) / (1000 * 60 * 60 * 24));
+		}
 
 		// Calculate received percentage
 		const receivedPercentage =
-			results[0].total_qty_items > 0
-				? ((results[0].total_received_items / results[0].total_qty_items) * 100).toFixed(2)
-				: 0;
+			booking.total_qty_items > 0
+				? ((booking.total_received_items / booking.total_qty_items) * 100).toFixed(2)
+				: "0.00";
 
 		const formattedResults = {
-			id: results[0].id,
-			approved_status: results[0].approved_status,
-			booking_status: results[0].booking_status,
-			created_at: results[0].created_at,
-			created_by: results[0].created_by_email,
-			last_updated_at: results[0].last_updated_at,
-			last_updated_by: results[0].last_updated_by_email ?? "",
-			description: results[0].description,
-			received_date: results[0].received_date,
-			wr_no: results[0].wr_no,
-			received: results[0].received,
-			posting_wr: results[0].posting_wr,
-			cn_no: results[0].cn_no,
-			is_removed: results[0].is_removed,
-			remove_reason: results[0].remove_reason,
-			po_numbers: results[0].po_numbers ? results[0].po_numbers.split(",") : [],
+			id: booking.id,
+			approved_status: booking.approved_status,
+			booking_status: booking.booking_status,
+			created_at: booking.created_at,
+			created_by: booking.created_by_email,
+			last_updated_at: booking.last_updated_at,
+			last_updated_by: booking.last_updated_by_email ?? "",
+			description: booking.description,
+			received_date: booking.received_date,
+			wr_no: booking.wr_no,
+			received: booking.received,
+			posting_wr: booking.posting_wr,
+			cn_no: booking.cn_no,
+			is_removed: booking.is_removed,
+			remove_reason: booking.remove_reason,
+			po_numbers: booking.po_numbers ? booking.po_numbers.split(",") : [],
 			aging: aging,
-			requested_by: results[0].requested_by,
-			total_qty_items: results[0].total_qty_items,
-			total_received_items: results[0].total_received_items,
+			requested_by: booking.requested_by,
+			total_qty_items: booking.total_qty_items,
+			total_received_items: booking.total_received_items,
 			received_percentage: `${receivedPercentage}%`,
 		};
 
@@ -547,7 +591,11 @@ router.put("/:bookingId/po-upload", (req, res) => {
 						SET last_updated_at = ?, last_updated_by = ? 
 						WHERE id = ?
 					`
-					const updateValues = [createdAt, createdBy, Number(bookingId)]
+					const updateValues = [
+						createdAt,
+						createdBy,
+						Number(bookingId),
+					]
 
 					connection.query(
 						queryUpdateBooking,
