@@ -14,6 +14,7 @@ const fetchAndUpdateBookingItems = async () => {
 					COALESCE(b.cn_no, 'No CN No') AS cn_no,
 					COALESCE(b.is_removed, 0) AS is_removed,
 					COALESCE(b.remove_reason, '') AS remove_reason,
+					COALESCE(b.wr_no, '') AS wr_no,
 					bi.po_number,
 					bi.item_qty,
 					bi.total_received_items,
@@ -57,6 +58,7 @@ const fetchAndUpdateBookingItems = async () => {
 			data.uoi,
 			data.item_qty,
 			data.total_received_items,
+			data.wr_no,
 			data.is_removed === 0 ? "false" : "true",
 			data.remove_reason
 		])
