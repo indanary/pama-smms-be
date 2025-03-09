@@ -57,7 +57,7 @@ const fetchAndUpdateBookingItems = async () => {
 				data.cn_no,
 				data.po_number === null ? "" : data.po_number,
 				data.due_date,
-				data.stock_code,
+				data.stock_code === null ? "" : data.stock_code,
 				data.part_no,
 				data.mnemonic,
 				data.class,
