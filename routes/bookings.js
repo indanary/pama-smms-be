@@ -25,7 +25,7 @@ router.get("/", (req, res) => {
 	`
 
 	// Add search condition
-	const searchQuery = search ? ` AND (b.id = ? OR bi.cn_no LIKE ?)` : ""
+	const searchQuery = search ? ` AND (b.id = ? OR b.cn_no LIKE ?)` : ""
 	queryListBooking += searchQuery
 	queryListBooking += ` GROUP BY b.id ORDER BY b.created_at DESC LIMIT ? OFFSET ?`
 
