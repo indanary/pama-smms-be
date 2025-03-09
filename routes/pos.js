@@ -79,6 +79,35 @@ router.put("/items", async (req, res) => {
 	}
 })
 
+// update booking item remark
+router.put("/item-remark", async (req, res) => {
+	try {
+		const { item_id, item_remark } = req.body;
+
+		// Validate input
+		if (!item_id || item_remark === undefined) {
+			return res.status(400).json({ message: "item id and item remark are required" });
+		}
+
+		// Update query
+		const query = `UPDATE booking_items SET item_remark = ? WHERE item_id = ?`;
+
+		// Execute query
+		const [result] = await connection.promise().query(query, [item_remark, item_id]);
+
+		// Check if the row was updated
+		if (result.affectedRows === 0) {
+			return res.status(404).json({ message: "Item not found or no changes made" });
+		}
+
+		res.status(200).json({ message: "Item remark updated successfully" });
+	} catch (error) {
+		console.error("Error updating item remark:", error);
+		res.status(500).json({ message: "Internal server error", error });
+	}
+});
+
+
 // update po
 router.put("/:id", async (req, res) => {
 	try {

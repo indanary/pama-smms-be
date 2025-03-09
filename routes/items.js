@@ -105,6 +105,7 @@ router.get("/:id/booking", (req, res) => {
 			bi.item_qty,
 			bi.total_received_items,
 			bi.po_number,
+			bi.item_remark,
 			u1.email AS created_by_email
 		FROM booking_items bi
 		JOIN items i ON bi.item_id = i.id
@@ -158,6 +159,7 @@ router.get("/:id/booking", (req, res) => {
 			created_by: item.created_by_email,
 			total_received_items: item.total_received_items,
 			po_number: item.po_number,
+			item_remark: item.item_remark
 		}));
 
 		res.status(200).json(formattedResults);
