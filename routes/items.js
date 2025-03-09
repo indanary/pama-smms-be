@@ -96,8 +96,8 @@ router.get("/", (req, res) => {
 
 // Get list of booking items with quantity
 router.get("/:id/booking", (req, res) => {
-	const {id} = req.params
-	const {search, options} = req.query
+	const { id } = req.params;
+	const { search, options, stock_code_filter } = req.query;
 
 	// Base query to get items and their quantities linked to a booking
 	let query = `
@@ -110,7 +110,10 @@ router.get("/:id/booking", (req, res) => {
 		JOIN items i ON bi.item_id = i.id
 		LEFT JOIN users u1 ON i.created_by = u1.id
 		WHERE bi.booking_id = ?
-	`
+	`;
+
+	// Query parameters array
+	const queryParams = [id];
 
 	// Add search condition if provided
 	if (search) {
@@ -120,49 +123,46 @@ router.get("/:id/booking", (req, res) => {
 				OR i.part_no LIKE ?
 				OR i.item_name LIKE ?
 			)
-		`
+		`;
+		queryParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
+	}
+
+	// Add condition to filter only items with stock_code if the param is provided
+	if (stock_code_filter) {
+		query += ` AND i.stock_code IS NOT NULL AND i.stock_code != ''`;
 	}
 
 	// Add condition to check if po_number is null when options is provided
 	if (options) {
-		query += `
-			AND bi.po_number IS NULL
-		`
+		query += ` AND bi.po_number IS NULL`;
 	}
-
-	// Prepare query parameters based on conditions
-	const queryParams = search
-		? [id, `%${search}%`, `%${search}%`, `%${search}%`]
-		: [id]
 
 	// Execute query with parameters
 	connection.query(query, queryParams, (err, result) => {
 		if (err) {
 			return res
 				.status(500)
-				.json({message: "Error fetching items", error: err})
+				.json({ message: "Error fetching items", error: err });
 		}
 
-		const formattedResults = result.map((item) => {
-			return {
-				id: item.id,
-				stock_code: item.stock_code,
-				part_no: item.part_no,
-				mnemonic: item.mnemonic,
-				class: item.class,
-				item_name: item.item_name,
-				uoi: item.uoi,
-				item_qty: item.item_qty,
-				created_at: item.created_at,
-				created_by: item.created_by_email,
-				total_received_items: item.total_received_items,
-				po_number: item.po_number,
-			}
-		})
+		const formattedResults = result.map((item) => ({
+			id: item.id,
+			stock_code: item.stock_code,
+			part_no: item.part_no,
+			mnemonic: item.mnemonic,
+			class: item.class,
+			item_name: item.item_name,
+			uoi: item.uoi,
+			item_qty: item.item_qty,
+			created_at: item.created_at,
+			created_by: item.created_by_email,
+			total_received_items: item.total_received_items,
+			po_number: item.po_number,
+		}));
 
-		res.status(200).json(formattedResults)
-	})
-})
+		res.status(200).json(formattedResults);
+	});
+});
 
 // add item
 router.post("/", (req, res) => {
