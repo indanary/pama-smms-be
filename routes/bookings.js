@@ -286,7 +286,7 @@ router.get("/:bookingId/po", async (req, res) => {
 
 // get detail
 router.get("/:id", (req, res) => {
-	const bookingId = req.params.id;
+	const bookingId = req.params.id
 
 	let queryListBooking = `
 		SELECT b.*,
@@ -302,46 +302,52 @@ router.get("/:id", (req, res) => {
 		LEFT JOIN booking_po bp ON b.id = bp.booking_id
 		WHERE b.id = ?
 		GROUP BY b.id
-	`;
+	`
 
 	connection.query(queryListBooking, [bookingId], (err, results) => {
 		if (err) {
 			return res
 				.status(500)
-				.json({ message: "Error fetching bookings", error: err });
+				.json({message: "Error fetching bookings", error: err})
 		}
 
 		if (results.length === 0) {
-			return res.status(404).json({ message: "Data not found" });
+			return res.status(404).json({message: "Data not found"})
 		}
 
-		const booking = results[0];
+		const booking = results[0]
 
 		// Fix aging calculation (use UTC dates)
-		const createdAt = new Date(booking.created_at);
-		const today = new Date();
+		const createdAt = new Date(booking.created_at)
+		const today = new Date()
 
 		const createdAtUTC = Date.UTC(
 			createdAt.getFullYear(),
 			createdAt.getMonth(),
-			createdAt.getDate()
-		);
+			createdAt.getDate(),
+		)
 		const todayUTC = Date.UTC(
 			today.getFullYear(),
 			today.getMonth(),
-			today.getDate()
-		);
+			today.getDate(),
+		)
 
-		let aging = 0;
+		let aging = 0
 		if (booking.booking_status !== "closed") {
-			aging = Math.floor((todayUTC - createdAtUTC) / (1000 * 60 * 60 * 24));
+			aging = Math.floor(
+				(todayUTC - createdAtUTC) / (1000 * 60 * 60 * 24),
+			)
 		}
 
 		// Calculate received percentage
 		const receivedPercentage =
 			booking.total_qty_items > 0
-				? ((booking.total_received_items / booking.total_qty_items) * 100).toFixed(2)
-				: "0.00";
+				? (
+						(booking.total_received_items /
+							booking.total_qty_items) *
+						100
+				  ).toFixed(2)
+				: "0.00"
 
 		const formattedResults = {
 			id: booking.id,
@@ -365,12 +371,11 @@ router.get("/:id", (req, res) => {
 			total_qty_items: booking.total_qty_items,
 			total_received_items: booking.total_received_items,
 			received_percentage: `${receivedPercentage}%`,
-		};
+		}
 
-		res.status(200).json(formattedResults);
-	});
-});
-
+		res.status(200).json(formattedResults)
+	})
+})
 
 // add booking
 router.post("/", (req, res) => {
@@ -503,26 +508,39 @@ router.put("/:bookingId/po-upload", (req, res) => {
 	const createdAt = format(new Date(), "yyyy-MM-dd HH:mm:ss")
 	const createdBy = req.user.id
 
-	// Remove possible duplicate entries in `po_data`
-	const uniquePoData = [
-		...new Map(
-			po_data.map((po) => [`${bookingId}-${po.po_number}`, po]),
-		).values(),
-	]
+	// Group po_data by po_number and sum total_qty
+	const aggregatedPoData = po_data.reduce((acc, po) => {
+		const key = `${bookingId}-${po.po_number}`
+
+		if (!acc[key]) {
+			acc[key] = {
+				po_number: po.po_number,
+				total_qty: po.total_qty, // Start with the first total_qty
+			}
+		} else {
+			acc[key].total_qty += po.total_qty // Sum total_qty for duplicate po_number
+		}
+
+		return acc
+	}, {})
+
+	// Convert object values back to an array
+	const uniquePoData = Object.values(aggregatedPoData)
 
 	// Prepare data for bulk insert
 	const values = uniquePoData.map((po) => [
 		bookingId,
 		po.po_number,
-		po.total_qty,
+		po.total_qty, // Now contains the correct summed value
 		createdAt,
 		createdBy,
 	])
 
 	const sqlInsert = `
-			INSERT INTO booking_po (booking_id, po_number, total_qty_items, created_at, created_by) 
-			VALUES ?
-	`
+	INSERT INTO booking_po (booking_id, po_number, total_qty_items, created_at, created_by) 
+	VALUES ?
+	ON DUPLICATE KEY UPDATE total_qty_items = VALUES(total_qty_items)
+`
 
 	connection.query(sqlInsert, [values], (error, results) => {
 		if (error) {
