@@ -277,49 +277,6 @@ router.post("/", (req, res) => {
 	})
 })
 
-// update item
-router.put("/:id", (req, res) => {
-	const { stock_code, class: item_class } = req.body
-	const { id } = req.params
-
-	// Skip if there's nothing to update
-	if (!stock_code && !item_class) {
-		return res.status(400).json({ message: "No fields to update" })
-	}
-
-	let updateFields = []
-	let queryParams = []
-
-	if (stock_code) {
-		updateFields.push("stock_code = ?")
-		queryParams.push(stock_code)
-	}
-
-	if (item_class) {
-		updateFields.push("class = ?")
-		queryParams.push(item_class)
-	}
-
-	const updateQuery = `UPDATE items SET ${updateFields.join(", ")} WHERE id = ?`
-	queryParams.push(id)
-
-	connection.query(updateQuery, queryParams, (err, result) => {
-		if (err) {
-			// Handle duplicate stock_code error (assuming MySQL error code 1062)
-			if (err.code === "ER_DUP_ENTRY") {
-				return res.status(409).json({ message: "Stock code already exists" })
-			}
-			return res.status(500).json({ message: "Error updating item", error: err })
-		}
-
-		if (result.affectedRows === 0) {
-			return res.status(404).json({ message: "Item not found" })
-		}
-
-		res.status(200).json({ message: "Item updated successfully" })
-	})
-})
-
 // upload item
 router.post("/upload", async (req, res) => {
 	const items = req.body.items
@@ -516,6 +473,49 @@ router.put("/update-received-items", async (req, res) => {
 			error,
 		})
 	}
+})
+
+// update item
+router.put("/:id", (req, res) => {
+	const { stock_code, class: item_class } = req.body
+	const { id } = req.params
+
+	// Skip if there's nothing to update
+	if (!stock_code && !item_class) {
+		return res.status(400).json({ message: "No fields to update" })
+	}
+
+	let updateFields = []
+	let queryParams = []
+
+	if (stock_code) {
+		updateFields.push("stock_code = ?")
+		queryParams.push(stock_code)
+	}
+
+	if (item_class) {
+		updateFields.push("class = ?")
+		queryParams.push(item_class)
+	}
+
+	const updateQuery = `UPDATE items SET ${updateFields.join(", ")} WHERE id = ?`
+	queryParams.push(id)
+
+	connection.query(updateQuery, queryParams, (err, result) => {
+		if (err) {
+			// Handle duplicate stock_code error (assuming MySQL error code 1062)
+			if (err.code === "ER_DUP_ENTRY") {
+				return res.status(409).json({ message: "Stock code already exists" })
+			}
+			return res.status(500).json({ message: "Error updating item", error: err })
+		}
+
+		if (result.affectedRows === 0) {
+			return res.status(404).json({ message: "Item not found" })
+		}
+
+		res.status(200).json({ message: "Item updated successfully" })
+	})
 })
 
 module.exports = router
