@@ -62,6 +62,7 @@ const fetchAndUpdateBookingItems = async () => {
 				cleanValue(data.item_remark),
 				cleanValue(data.po_number),
 				cleanValue(data.due_date),
+				`${receivedPercentage}%`, // Received percentage from booking_po
 				cleanValue(data.stock_code), // Cleaned stock_code value
 				cleanValue(data.part_no),
 				cleanValue(data.mnemonic),
@@ -70,7 +71,6 @@ const fetchAndUpdateBookingItems = async () => {
 				cleanValue(data.uoi),
 				data.item_qty,
 				data.total_received_items,
-				`${receivedPercentage}%`, // Received percentage from booking_po
 				cleanValue(data.wr_no),
 				data.is_removed === 0 ? "false" : "true",
 				cleanValue(data.remove_reason)
