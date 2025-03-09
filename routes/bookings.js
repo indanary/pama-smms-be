@@ -33,7 +33,7 @@ router.get("/", (req, res) => {
 		SELECT COUNT(DISTINCT b.id) AS total
 		FROM bookings b
 		LEFT JOIN booking_items bi ON b.id = bi.booking_id
-		WHERE b.is_removed = 0 ${search ? "AND (b.id = ? OR bi.cn_no LIKE ?)" : ""}
+		WHERE b.is_removed = 0 ${search ? "AND (b.id = ? OR b.cn_no LIKE ?)" : ""}
 	`
 
 	// Query parameters
