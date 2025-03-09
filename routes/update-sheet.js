@@ -9,9 +9,9 @@ const fetchAndUpdateBookingItems = async () => {
 		const query = `
       SELECT
 					bi.booking_id,
-					COALESCE(b.description, 'No Description') AS description,
+					COALESCE(b.description, '') AS description,
 					COALESCE(b.requested_by, '') AS requested_by,
-					COALESCE(b.cn_no, 'No CN No') AS cn_no,
+					COALESCE(b.cn_no, '') AS cn_no,
 					COALESCE(b.is_removed, 0) AS is_removed,
 					COALESCE(b.remove_reason, '') AS remove_reason,
 					COALESCE(b.wr_no, '') AS wr_no,
@@ -21,12 +21,12 @@ const fetchAndUpdateBookingItems = async () => {
 					COALESCE(bp.total_qty_items, 0) AS total_qty_items,
 					COALESCE(bp.total_received_items, 0) AS total_received_items,
 					COALESCE(i.id, 0) AS item_id,
-					COALESCE(i.stock_code, 'Unknown') AS stock_code,
-					COALESCE(i.part_no, 'Unknown') AS part_no,
-					COALESCE(i.mnemonic, 'Unknown') AS mnemonic,
-					COALESCE(i.class, 'Unknown') AS class,
-					COALESCE(i.item_name, 'Unknown') AS item_name,
-					COALESCE(i.uoi, 'Unknown') AS uoi,
+					COALESCE(i.stock_code, '') AS stock_code,
+					COALESCE(i.part_no, '') AS part_no,
+					COALESCE(i.mnemonic, '') AS mnemonic,
+					COALESCE(i.class, '') AS class,
+					COALESCE(i.item_name, '') AS item_name,
+					COALESCE(i.uoi, '') AS uoi,
 					COALESCE(bp.due_date, '') AS due_date,
 					u1.email AS created_by_email
 			FROM booking_items bi
@@ -43,6 +43,9 @@ const fetchAndUpdateBookingItems = async () => {
 			return {message: "No booking items found"}
 		}
 
+		// Function to clean up null, empty, or "Unknown" values
+		const cleanValue = (value) => (!value || value === "Unknown" ? "" : value)
+
 		// Format data for Google Sheets
 		const formattedData = rows.map((data) => {
 			const receivedPercentage =
@@ -52,25 +55,25 @@ const fetchAndUpdateBookingItems = async () => {
 
 			return [
 				`BOOKSM${data.booking_id}`,
-				data.description,
-				data.created_by_email,
-				data.requested_by,
-				data.cn_no,
-				data.item_remark,
-				data.po_number === null ? "" : data.po_number,
-				data.due_date,
-				data.stock_code === null ? "" : data.stock_code,
-				data.part_no,
-				data.mnemonic,
-				data.class,
-				data.item_name,
-				data.uoi,
+				cleanValue(data.description),
+				cleanValue(data.created_by_email),
+				cleanValue(data.requested_by),
+				cleanValue(data.cn_no),
+				cleanValue(data.item_remark),
+				cleanValue(data.po_number),
+				cleanValue(data.due_date),
+				cleanValue(data.stock_code), // Cleaned stock_code value
+				cleanValue(data.part_no),
+				cleanValue(data.mnemonic),
+				cleanValue(data.class),
+				cleanValue(data.item_name),
+				cleanValue(data.uoi),
 				data.item_qty,
 				data.total_received_items,
-				`${receivedPercentage}%`, // Add received percentage from booking_po
-				data.wr_no,
+				`${receivedPercentage}%`, // Received percentage from booking_po
+				cleanValue(data.wr_no),
 				data.is_removed === 0 ? "false" : "true",
-				data.remove_reason
+				cleanValue(data.remove_reason)
 			]
 		})
 
