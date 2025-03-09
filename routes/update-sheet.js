@@ -17,6 +17,7 @@ const fetchAndUpdateBookingItems = async () => {
 	COALESCE(b.wr_no, '') AS wr_no,
 	bi.po_number,
 	bi.item_qty,
+	bi.total_received_items,
 	bi.item_remark,
 	COALESCE(i.id, 0) AS item_id,
 	COALESCE(i.stock_code, '') AS stock_code,
@@ -28,7 +29,7 @@ const fetchAndUpdateBookingItems = async () => {
 	ANY_VALUE(bp.due_date) AS due_date,
 	u1.email AS created_by_email,
 	COALESCE(SUM(bp.total_qty_items), 0) AS total_qty_items,
-	COALESCE(SUM(bp.total_received_items), 0) AS total_received_items
+	COALESCE(SUM(bp.total_received_items), 0) AS total_received_items_per_b
 FROM booking_items bi
 LEFT JOIN bookings b ON bi.booking_id = b.id
 LEFT JOIN items i ON bi.item_id = i.id
@@ -59,7 +60,7 @@ GROUP BY bi.booking_id, bi.po_number, bi.item_id, u1.email, b.description, b.req
 
 			bookingTotals[row.booking_id].total_qty += row.total_qty_items
 			bookingTotals[row.booking_id].total_received +=
-				row.total_received_items
+				row.total_received_items_per_b
 		})
 
 		// Function to clean up null, empty, or "Unknown" values
