@@ -37,7 +37,7 @@ const fetchAndUpdateBookingItems = async () => {
 					SELECT COALESCE(SUM(bp.total_received_items), 0)
 					FROM booking_po bp
 					WHERE bp.booking_id = bi.booking_id
-				) AS total_received_items
+				) AS total_received_items_booking
 			FROM booking_items bi
 			LEFT JOIN bookings b ON bi.booking_id = b.id
 			LEFT JOIN items i ON bi.item_id = i.id
@@ -64,7 +64,7 @@ const fetchAndUpdateBookingItems = async () => {
 			// Calculate received percentage per booking_id
 			const receivedPercentage =
 				data.total_qty_items > 0
-					? ((data.total_received_items / data.total_qty_items) * 100).toFixed(2)
+					? ((data.total_received_items_booking / data.total_qty_items) * 100).toFixed(2)
 					: "0.00";
 
 			return [
@@ -83,7 +83,7 @@ const fetchAndUpdateBookingItems = async () => {
 				cleanValue(data.class),
 				cleanValue(data.item_name),
 				cleanValue(data.uoi),
-				data.item_qty,
+				data.total_qty_items,
 				data.total_received_items,
 				cleanValue(data.wr_no),
 				data.is_removed === 0 ? "false" : "true",
