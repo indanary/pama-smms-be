@@ -15,6 +15,7 @@ const fetchAndUpdateBookingItems = async () => {
 				COALESCE(b.is_removed, 0) AS is_removed,
 				COALESCE(b.remove_reason, '') AS remove_reason,
 				COALESCE(b.wr_no, '') AS wr_no,
+				COALESCE(b.booking_status, '') AS booking_status,
 				bi.po_number,
 				bi.item_qty,
 				bi.total_received_items,
@@ -27,6 +28,7 @@ const fetchAndUpdateBookingItems = async () => {
 				COALESCE(i.item_name, '') AS item_name,
 				COALESCE(i.uoi, '') AS uoi,
 				ANY_VALUE(bp.due_date) AS due_date,
+				ANY_VALUE(bp.total_qty_items) AS total_qty_items_booking,
 				u1.email AS created_by_email,
 				(
 					SELECT COALESCE(SUM(bp.total_qty_items), 0)
@@ -83,11 +85,12 @@ const fetchAndUpdateBookingItems = async () => {
 				cleanValue(data.class),
 				cleanValue(data.item_name),
 				cleanValue(data.uoi),
-				data.total_qty_items,
+				data.item_qty,
 				data.total_received_items,
 				cleanValue(data.wr_no),
 				data.is_removed === 0 ? "false" : "true",
 				cleanValue(data.remove_reason),
+				cleanValue(data.booking_status)
 			];
 		});
 
