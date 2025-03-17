@@ -14,8 +14,8 @@ router.get("/", (req, res) => {
 			u1.email AS created_by_email,
 			u2.email AS last_updated_by_email,
 			GROUP_CONCAT(DISTINCT bi.po_number) AS po_numbers,
-			COALESCE(SUM(bp.total_qty_items), 0) AS total_qty_items,
-			COALESCE(SUM(bp.total_received_items), 0) AS total_received_items
+			COALESCE(SUM(bi.item_qty), 0) AS total_qty_items,
+			COALESCE(SUM(bi.total_received_items), 0) AS total_received_items
 		FROM bookings b
 		LEFT JOIN users u1 ON b.created_by = u1.id
 		LEFT JOIN users u2 ON b.last_updated_by = u2.id
@@ -293,8 +293,8 @@ router.get("/:id", (req, res) => {
 			u1.email AS created_by_email,
 			u2.email AS last_updated_by_email,
 			GROUP_CONCAT(DISTINCT bi.po_number) AS po_numbers,
-			COALESCE(SUM(bp.total_qty_items), 0) AS total_qty_items,
-			COALESCE(SUM(bp.total_received_items), 0) AS total_received_items
+			COALESCE(SUM(bi.item_qty), 0) AS total_qty_items,
+			COALESCE(SUM(bi.total_received_items), 0) AS total_received_items
 		FROM bookings b
 		LEFT JOIN users u1 ON b.created_by = u1.id
 		LEFT JOIN users u2 ON b.last_updated_by = u2.id

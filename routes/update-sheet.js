@@ -31,14 +31,14 @@ const fetchAndUpdateBookingItems = async () => {
 				ANY_VALUE(bp.total_qty_items) AS total_qty_items_booking,
 				u1.email AS created_by_email,
 				(
-					SELECT COALESCE(SUM(bp.total_qty_items), 0)
-					FROM booking_po bp
-					WHERE bp.booking_id = bi.booking_id
+					SELECT COALESCE(SUM(bi2.item_qty), 0)
+					FROM booking_items bi2
+					WHERE bi2.booking_id = bi.booking_id
 				) AS total_qty_items,
 				(
-					SELECT COALESCE(SUM(bp.total_received_items), 0)
-					FROM booking_po bp
-					WHERE bp.booking_id = bi.booking_id
+					SELECT COALESCE(SUM(bi2.total_received_items), 0)
+					FROM booking_items bi2
+					WHERE bi2.booking_id = bi.booking_id
 				) AS total_received_items_booking
 			FROM booking_items bi
 			LEFT JOIN bookings b ON bi.booking_id = b.id
@@ -49,25 +49,30 @@ const fetchAndUpdateBookingItems = async () => {
 					 b.requested_by, b.cn_no, b.is_removed, b.remove_reason, b.wr_no, 
 					 bi.item_qty, bi.item_remark, i.id, i.stock_code, i.part_no, 
 					 i.mnemonic, i.class, i.item_name, i.uoi;
-		`;
+		`
 
-		const [rows] = await connection.promise().query(query);
+		const [rows] = await connection.promise().query(query)
 
 		if (!rows || rows.length === 0) {
-			console.log("No booking items found to update Google Sheets.");
-			return { message: "No booking items found" };
+			console.log("No booking items found to update Google Sheets.")
+			return {message: "No booking items found"}
 		}
 
 		// Function to clean up null, empty, or "Unknown" values
-		const cleanValue = (value) => (!value || value === "Unknown" ? "" : value);
+		const cleanValue = (value) =>
+			!value || value === "Unknown" ? "" : value
 
 		// Format data for Google Sheets
 		const formattedData = rows.map((data) => {
 			// Calculate received percentage per booking_id
 			const receivedPercentage =
 				data.total_qty_items > 0
-					? ((data.total_received_items_booking / data.total_qty_items) * 100).toFixed(2)
-					: "0.00";
+					? (
+							(data.total_received_items_booking /
+								data.total_qty_items) *
+							100
+					  ).toFixed(2)
+					: "0.00"
 
 			return [
 				`BOOKSM${data.booking_id}`,
@@ -90,21 +95,20 @@ const fetchAndUpdateBookingItems = async () => {
 				cleanValue(data.wr_no),
 				data.is_removed === 0 ? "false" : "true",
 				cleanValue(data.remove_reason),
-				cleanValue(data.booking_status)
-			];
-		});
+				cleanValue(data.booking_status),
+			]
+		})
 
 		// Update Google Sheet
-		await updateSheet(formattedData);
+		await updateSheet(formattedData)
 
-		console.log("Booking items updated in Google Sheets successfully!");
-		return { message: "Booking spreadsheet updated successfully" };
+		console.log("Booking items updated in Google Sheets successfully!")
+		return {message: "Booking spreadsheet updated successfully"}
 	} catch (error) {
-		console.error("Error fetching or updating booking items:", error);
-		throw error;
+		console.error("Error fetching or updating booking items:", error)
+		throw error
 	}
-};
-
+}
 
 // API endpoint to trigger the update
 router.post("/generate", async (req, res) => {
